@@ -1,3 +1,15 @@
+/* Glassmorphism.
+ *
+ * Frosted translucent surfaces over a tinted ambient ground. Two rules keep it
+ * from wrecking a dense numeric dashboard:
+ *
+ *   1. Only surfaces become translucent. Every text colour is unchanged or
+ *      raised — the numbers are the point of the page.
+ *   2. One blur per stacking context. Panels blur; the tiles, rows and detail
+ *      panes inside them use flat rgba tints. Nested backdrop-filters are
+ *      expensive and render inconsistently across browsers.
+ */
+
 :root {
   --bg: #0d1117;
   --panel: #161b22;
@@ -5,24 +17,61 @@
   --line: #262d38;
   --ink: #e6edf3;
   --ink-2: #9aa7b4;
-  --ink-3: #6b7785;
+  /* Lifted from #6b7785: the dimmest tier now sits over a coloured ground and
+     had no contrast to spare. */
+  --ink-3: #828e9c;
   --dessert: #d98cc4;
   --drink: #5cc8d8;
+  --indigo: #7d8cff;
   --other: #3f4854;
   --up: #4ac97e;
   --down: #f0736a;
   --warn: #e3b341;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
+  /* The glass surface, as one set of tokens so every panel is one declaration. */
+  --glass-bg: rgba(255, 255, 255, 0.06);
+  --glass-bg-2: rgba(255, 255, 255, 0.09);
+  --glass-border: rgba(255, 255, 255, 0.11);
+  --glass-line: rgba(255, 255, 255, 0.06);
+  --glass-blur: blur(22px) saturate(150%);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.38);
+  /* The lit top edge. This does most of the work of reading as glass rather
+     than as a tinted box. */
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.09);
 }
 
 * { box-sizing: border-box; }
 
+/* The base colour lives on html, not body. A z-index:-1 pseudo-element paints
+   above the canvas but below its own parent's background, so an opaque
+   background on body would hide the ambient ground entirely. */
+html { background: var(--bg); }
+
 body {
   margin: 0;
-  background: var(--bg);
+  background: transparent;
   color: var(--ink);
   font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* The ambient ground. Glass over a flat colour just reads as grey — it needs
+   something behind it to refract. Fixed, so it does not travel with scroll.
+   Drawn as a pseudo-element so index.html needs no extra markup.
+   The three hues are the palette's own, so the ground agrees with the data
+   colours instead of introducing a fourth accent. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(58rem 40rem at 10% -8%, rgba(217, 140, 196, 0.26), transparent 62%),
+    radial-gradient(52rem 38rem at 90% 4%, rgba(92, 200, 216, 0.22), transparent 62%),
+    radial-gradient(68rem 50rem at 50% 106%, rgba(125, 140, 255, 0.22), transparent 62%),
+    var(--bg);
 }
 
 .wrap { max-width: 1420px; margin: 0 auto; padding: 0 24px 64px; }
@@ -32,27 +81,41 @@ body {
 .periodbar {
   position: sticky; top: 0; z-index: 10;
   display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
-  padding: 14px 0 12px;
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--line);
+  padding: 14px 24px 12px;
+  margin: 0 -24px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight);
 }
 
-.seg { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.seg {
+  display: flex; border: 1px solid var(--glass-border); border-radius: 8px;
+  overflow: hidden; background: var(--glass-bg);
+}
 .seg button {
   border: 0; background: transparent; color: var(--ink-2);
   padding: 6px 15px; font: inherit; font-size: 13px; cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
-.seg button + button { border-left: 1px solid var(--line); }
-.seg button[aria-pressed="true"] { background: var(--panel-2); color: var(--ink); }
-.seg button:hover:not([aria-pressed="true"]) { color: var(--ink); }
+.seg button + button { border-left: 1px solid var(--glass-border); }
+.seg button[aria-pressed="true"] {
+  background: var(--glass-bg-2); color: var(--ink);
+  box-shadow: var(--glass-highlight);
+}
+.seg button:hover:not([aria-pressed="true"]) { color: var(--ink); background: rgba(255, 255, 255, 0.04); }
 
 .nav { display: flex; align-items: center; gap: 10px; }
 .nav button {
-  width: 28px; height: 28px; border-radius: 6px; cursor: pointer;
-  border: 1px solid var(--line); background: transparent; color: var(--ink-2); font-size: 15px;
+  width: 28px; height: 28px; border-radius: 7px; cursor: pointer;
+  border: 1px solid var(--glass-border); background: var(--glass-bg);
+  color: var(--ink-2); font-size: 15px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.nav button:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-3); }
+.nav button:hover:not(:disabled) {
+  color: var(--ink); border-color: rgba(255, 255, 255, 0.2); background: var(--glass-bg-2);
+}
 .nav button:disabled { opacity: 0.3; cursor: default; }
 
 .rangelabel { min-width: 190px; text-align: center; }
@@ -60,29 +123,44 @@ body {
 .rangelabel span { display: block; font-size: 12px; color: var(--ink-3); }
 
 .ghost {
-  border: 1px solid var(--line); background: transparent; color: var(--ink-2);
-  border-radius: 6px; padding: 6px 13px; font: inherit; font-size: 13px; cursor: pointer;
+  border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--ink-2);
+  border-radius: 7px; padding: 6px 13px; font: inherit; font-size: 13px; cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
-.ghost:hover { color: var(--ink); }
-.ghost[aria-pressed="true"] { background: var(--panel-2); color: var(--ink); }
+.ghost:hover { color: var(--ink); background: var(--glass-bg-2); }
+.ghost[aria-pressed="true"] {
+  background: var(--glass-bg-2); color: var(--ink); box-shadow: var(--glass-highlight);
+}
 
 .status { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-3); }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--up); }
 .dot.idle { background: var(--ink-3); }
 .dot.bad { background: var(--down); }
-.dot.live { animation: pulse 2.4s ease-in-out infinite; }
+.dot.live { animation: pulse 2.4s ease-in-out infinite; box-shadow: 0 0 8px var(--up); }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
 /* ---- headline ---- */
 
-.headline { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 1px;
-  background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 22px 0; }
-.tile { background: var(--panel); padding: 16px 18px; }
+/* gap:0, not the old 1px-over-a-background divider trick: with translucent
+   tiles that gap would show the ambient ground, striping colour between every
+   tile. The dividers are real borders now. */
+.headline {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 0;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border); border-radius: 14px; overflow: hidden;
+  margin: 22px 0;
+  box-shadow: var(--glass-shadow), var(--glass-highlight);
+}
+/* No backdrop-filter here — the container is already blurred. */
+.tile { padding: 16px 18px; border-right: 1px solid var(--glass-line); }
+.tile:last-child { border-right: 0; }
 .tile .k { font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-3); }
 .tile .v { font-size: 26px; font-weight: 600; margin-top: 6px; letter-spacing: -0.02em; }
 .tile .d { font-size: 12px; margin-top: 3px; color: var(--ink-3); }
-.tile.dessert .v { color: var(--dessert); }
-.tile.drink .v { color: var(--drink); }
+.tile.dessert .v { color: var(--dessert); text-shadow: 0 0 24px rgba(217, 140, 196, 0.3); }
+.tile.drink .v { color: var(--drink); text-shadow: 0 0 24px rgba(92, 200, 216, 0.3); }
 
 .up { color: var(--up); }
 .down { color: var(--down); }
@@ -94,7 +172,13 @@ h2 { font-size: 13px; letter-spacing: 0.07em; text-transform: uppercase; color: 
 /* ---- brand cards ---- */
 
 .brands { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+.card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border); border-radius: 14px; padding: 16px 18px;
+  box-shadow: var(--glass-shadow), var(--glass-highlight);
+}
 .card header { display: flex; align-items: baseline; justify-content: space-between; }
 .card h3 { margin: 0; font-size: 16px; font-weight: 600; }
 .card .sub { font-size: 12px; color: var(--ink-3); }
@@ -105,18 +189,27 @@ h2 { font-size: 13px; letter-spacing: 0.07em; text-transform: uppercase; color: 
 
 /* ---- outlet table ---- */
 
-.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.tablewrap {
+  overflow-x: auto;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border); border-radius: 14px;
+  box-shadow: var(--glass-shadow), var(--glass-highlight);
+}
 table { border-collapse: collapse; width: 100%; min-width: 940px; }
-th, td { text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th, td { text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--glass-line); white-space: nowrap; }
 th:first-child, td:first-child { text-align: left; }
 th { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
 th[data-sort] { cursor: pointer; user-select: none; }
 th[data-sort]:hover { color: var(--ink); }
 th[aria-sort] { color: var(--ink); }
 tbody tr:last-child td { border-bottom: 0; }
-tbody tr.outlet { cursor: pointer; }
-tbody tr.outlet:hover { background: var(--panel-2); }
-tbody tr.outlet[aria-expanded="true"] { background: var(--panel-2); }
+tbody tr.outlet { cursor: pointer; transition: background 0.15s; }
+/* Flat tints, not glass: frosting every row would wreck a dense numeric grid
+   and stack dozens of blur layers. */
+tbody tr.outlet:hover { background: var(--glass-bg-2); }
+tbody tr.outlet[aria-expanded="true"] { background: var(--glass-bg-2); }
 .num { font-variant-numeric: tabular-nums; }
 .name { font-weight: 500; }
 .name small { display: block; font-weight: 400; font-size: 11px; color: var(--ink-3); }
@@ -124,13 +217,13 @@ tbody tr.outlet[aria-expanded="true"] { background: var(--panel-2); }
 /* Share cell: a bar for peer comparison, a sparkline for the trend. */
 .share { display: flex; align-items: center; justify-content: flex-end; gap: 9px; }
 .share .pct { font-variant-numeric: tabular-nums; min-width: 42px; }
-.bar { width: 74px; height: 7px; border-radius: 3px; background: var(--other); overflow: hidden; }
-.bar i { display: block; height: 100%; border-radius: 3px; }
-.bar.dessert i { background: var(--dessert); }
-.bar.drink i { background: var(--drink); }
+.bar { width: 74px; height: 7px; border-radius: 4px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 4px; }
+.bar.dessert i { background: var(--dessert); box-shadow: 0 0 10px rgba(217, 140, 196, 0.45); }
+.bar.drink i { background: var(--drink); box-shadow: 0 0 10px rgba(92, 200, 216, 0.45); }
 .trend { width: 46px; height: 16px; }
 
-tr.detail td { padding: 0; border-bottom: 1px solid var(--line); background: var(--panel-2); }
+tr.detail td { padding: 0; border-bottom: 1px solid var(--glass-line); background: rgba(0, 0, 0, 0.18); }
 .detail-inner { padding: 16px 18px 20px; }
 .catgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px 26px; margin-top: 10px; }
 .catrow { display: flex; align-items: center; gap: 9px; font-size: 13px; }
@@ -143,9 +236,15 @@ tr.detail td { padding: 0; border-bottom: 1px solid var(--line); background: var
 .sw-other { background: var(--other); }
 .sw-unmapped { background: var(--warn); }
 
-.notice { margin-top: 14px; padding: 11px 14px; border-radius: 8px; font-size: 13px;
-  background: var(--panel); border: 1px solid var(--line); color: var(--ink-2); }
-.notice.warn { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+.notice {
+  margin-top: 14px; padding: 11px 14px; border-radius: 11px; font-size: 13px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border); color: var(--ink-2);
+  box-shadow: var(--glass-highlight);
+}
+.notice.warn { border-color: color-mix(in srgb, var(--warn) 40%, var(--glass-border)); }
 .notice b { color: var(--ink); font-weight: 600; }
 .notice .muted { color: var(--ink-3); }
 .notice ul { margin: 8px 0 0; padding-left: 18px; }
@@ -154,3 +253,24 @@ tr.detail td { padding: 0; border-bottom: 1px solid var(--line); background: var
 footer { margin-top: 34px; font-size: 12px; color: var(--ink-3); }
 
 @media (prefers-reduced-motion: reduce) { .dot.live { animation: none; } }
+
+/* Fall back to opaque panels where glass is unavailable or unwanted. Without
+   these the surfaces read as barely-there tints over a coloured ground and the
+   text loses its backing. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .periodbar, .headline, .card, .tablewrap, .notice { background: var(--panel); }
+  .periodbar { background: var(--bg); }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  body::before { background: var(--bg); }
+  .periodbar, .headline, .card, .tablewrap, .notice {
+    background: var(--panel);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-color: var(--line);
+  }
+  .tile, th, td, tr.detail td { border-color: var(--line); }
+  .tile.dessert .v, .tile.drink .v { text-shadow: none; }
+  .bar.dessert i, .bar.drink i { box-shadow: none; }
+}
