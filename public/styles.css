@@ -32,6 +32,11 @@
   /* The glass surface, as one set of tokens so every panel is one declaration. */
   --glass-bg: rgba(255, 255, 255, 0.06);
   --glass-bg-2: rgba(255, 255, 255, 0.09);
+  /* The header needs far more scrim than a panel. Content scrolls underneath
+     it, and at panel opacity that content stayed legible through the bar — a
+     half-cut line of text competing with the controls. A dark base rather than
+     a white sheen, so the ambient colour still comes through the blur. */
+  --glass-header: rgba(13, 17, 23, 0.74);
   --glass-border: rgba(255, 255, 255, 0.11);
   --glass-line: rgba(255, 255, 255, 0.06);
   --glass-blur: blur(22px) saturate(150%);
@@ -78,16 +83,25 @@ body::before {
 
 /* ---- period bar ---- */
 
+/* A full-bleed band, not a panel. It sits outside .wrap in the markup so it can
+   span the viewport; the inner element holds the controls to the same column as
+   everything below, so the bar reads as page furniture rather than a floating
+   rectangle with the content visibly running past its edges. */
 .periodbar {
   position: sticky; top: 0; z-index: 10;
-  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
-  padding: 14px 24px 12px;
-  margin: 0 -24px;
-  background: var(--glass-bg);
+  background: var(--glass-header);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border-bottom: 1px solid var(--glass-border);
-  box-shadow: var(--glass-highlight);
+  /* The drop shadow is what separates the band from whatever slides beneath it.
+     Without it the two planes read as one surface. */
+  box-shadow: var(--glass-highlight), 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.periodbar-inner {
+  max-width: 1420px; margin: 0 auto;
+  padding: 14px 24px 12px;
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
 }
 
 .seg {

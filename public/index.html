@@ -7,8 +7,10 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="wrap">
-    <div class="periodbar">
+  <!-- Outside .wrap so the sticky band spans the viewport. Inside it, the bar
+       could never be wider than the 1420px column and read as a floating box. -->
+  <div class="periodbar">
+    <div class="periodbar-inner">
       <div class="seg" id="granularity" role="group" aria-label="Period length">
         <button data-g="day" aria-pressed="true">Day</button>
         <button data-g="week" aria-pressed="false">Week</button>
@@ -33,7 +35,9 @@
         <span id="status">Connecting…</span>
       </div>
     </div>
+  </div>
 
+  <div class="wrap">
     <div class="headline" id="headline"></div>
 
     <h2>Brands</h2>
