@@ -1,0 +1,8 @@
+data/
+.env
+node_modules/
+
+# Contains live Petpooja credentials in plaintext. Never track this.
+apidocs/
+
+.DS_Store

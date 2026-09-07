@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live Sales — Bookends</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="periodbar">
+      <div class="seg" id="granularity" role="group" aria-label="Period length">
+        <button data-g="day" aria-pressed="true">Day</button>
+        <button data-g="week" aria-pressed="false">Week</button>
+        <button data-g="month" aria-pressed="false">Month</button>
+      </div>
+
+      <div class="nav">
+        <button id="prev" title="Previous period" aria-label="Previous period">‹</button>
+        <div class="rangelabel">
+          <strong id="range-label">—</strong>
+          <span id="prev-label"></span>
+        </div>
+        <button id="next" title="Next period" aria-label="Next period">›</button>
+      </div>
+
+      <button class="ghost" id="today">Today</button>
+      <button class="ghost" id="rolling" aria-pressed="false"
+              title="Use last 7 / last 30 days instead of calendar weeks and months">Rolling</button>
+
+      <div class="status">
+        <span class="dot idle" id="dot"></span>
+        <span id="status">Connecting…</span>
+      </div>
+    </div>
+
+    <div class="headline" id="headline"></div>
+
+    <h2>Brands</h2>
+    <div class="brands" id="brands"></div>
+
+    <h2>Outlets</h2>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th data-sort="name">Outlet</th>
+            <th data-sort="totalSales" class="num">Sales</th>
+            <th data-sort="salesDelta" class="num">vs prev</th>
+            <th data-sort="dessertPct" class="num">Desserts</th>
+            <th data-sort="drinkPct" class="num">Drinks</th>
+            <th data-sort="orders" class="num">Orders</th>
+            <th data-sort="aov" class="num">AOV</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <div id="notices"></div>
+
+    <footer>
+      Gross sales including GST, from the Petpooja Orders API. Shares are of menu sales —
+      total sales less delivery, container and service charges, tips, order-level discounts
+      and round-off.
+    </footer>
+  </div>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>
