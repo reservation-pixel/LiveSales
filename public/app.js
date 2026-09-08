@@ -182,8 +182,10 @@ function renderBrands(brands) {
       <div class="big">${money(b.totalSales)}</div>
       <div class="sub">${deltaHTML(b.salesDelta)} vs previous · ${inr.format(b.orders)} orders</div>
       <div class="mix">
-        <span style="color:var(--dessert)">Desserts <b>${pct(b.dessertPct)}</b></span>
-        <span style="color:var(--drink)">Drinks <b>${pct(b.drinkPct)}</b></span>
+        <span class="mixitem dessert">Desserts <b>${pct(b.dessertPct)}</b>
+          <span class="mixval">${exact(b.dessertSales)}</span></span>
+        <span class="mixitem drink">Drinks <b>${pct(b.drinkPct)}</b>
+          <span class="mixval">${exact(b.drinkSales)}</span></span>
       </div>
       ${sparkline(trading(b.series).map((d) => d.totalSales), '#7d8cff')}
     </div>`,
@@ -213,11 +215,15 @@ function renderRows(d) {
     else th.removeAttribute('aria-sort');
   });
 
-  const shareCell = (value, max, cls, series, group, colour) => `
+  // The share and the money it stands for. A percentage alone cannot be
+  // compared across outlets of different sizes — 18% of Piplod is a fraction of
+  // 8% of Capiche Ahmedabad.
+  const shareCell = (value, sales, max, cls, series, group, colour) => `
     <td><div class="share">
       ${microTrend(shareSeries(series, group), colour)}
       <div class="bar ${cls}"><i style="width:${((value || 0) / max) * 100}%"></i></div>
       <span class="pct">${pct(value)}</span>
+      <span class="shareval">${exact(sales)}</span>
     </div></td>`;
 
   document.getElementById('rows').innerHTML = rows
@@ -231,8 +237,8 @@ function renderRows(d) {
         </td>
         <td class="num">${money(o.totalSales)}</td>
         <td class="num">${deltaHTML(o.salesDelta)}</td>
-        ${shareCell(o.dessertPct, maxDessert, 'dessert', o.series, 'desserts', '#d98cc4')}
-        ${shareCell(o.drinkPct, maxDrink, 'drink', o.series, 'drinks', '#5cc8d8')}
+        ${shareCell(o.dessertPct, o.dessertSales, maxDessert, 'dessert', o.series, 'desserts', '#d98cc4')}
+        ${shareCell(o.drinkPct, o.drinkSales, maxDrink, 'drink', o.series, 'drinks', '#5cc8d8')}
         <td class="num">${inr.format(o.orders)}</td>
         <td class="num">${exact(o.aov)}</td>
       </tr>
