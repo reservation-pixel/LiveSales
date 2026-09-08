@@ -37,11 +37,20 @@ export const credentialsFromEnv = (env = process.env) => {
       `Missing credentials: ${missing.join(', ')}. Copy .env.example to .env and run with --env-file=.env`,
     );
   }
-  // A dropped character in a 40-char token surfaces as a confusing "Invalid
-  // Token (GN_102)" from upstream. Catch it here where the message can say why.
-  for (const k of ['app_secret', 'access_token']) {
-    if (creds[k].length !== 40) {
-      throw new Error(`PP_${k.toUpperCase()} should be 40 characters, got ${creds[k].length}`);
+  // Whitespace is the classic dashboard-paste failure: a trailing newline makes
+  // a value that looks identical and is rejected upstream.
+  for (const k of Object.keys(creds)) creds[k] = creds[k].trim();
+
+  // A dropped character surfaces as a confusing upstream message — "Invalid
+  // client credentials." for the key or secret, "Invalid Token." for the token
+  // — with no hint which value is at fault. Catch it here, where it can say so.
+  const LENGTHS = { app_key: 32, app_secret: 40, access_token: 40 };
+  for (const [k, want] of Object.entries(LENGTHS)) {
+    if (creds[k].length !== want) {
+      throw new Error(
+        `PP_${k.toUpperCase()} should be ${want} characters, got ${creds[k].length}. ` +
+          'Check for a truncated or mis-pasted value.',
+      );
     }
   }
   return creds;

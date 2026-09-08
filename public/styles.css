@@ -296,6 +296,26 @@ body::before {
   background: var(--glass-bg-2); color: var(--ink); box-shadow: var(--glass-highlight);
 }
 
+/* A request is in flight. Ten seconds of no feedback reads as a broken button,
+   which is what "feels sticky" meant. */
+.appbar::after {
+  content: '';
+  position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--drink), transparent);
+  background-size: 40% 100%;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+.appbar.loading::after { opacity: 0.9; animation: sweep 1.1s ease-in-out infinite; }
+@keyframes sweep {
+  0% { background-position: -60% 0; }
+  100% { background-position: 160% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .appbar.loading::after { animation: none; background: var(--drink); opacity: 0.5; }
+}
+
 /* ---- the slot ---- */
 
 /* Tagline at rest, running totals once the stat cards scroll past. Both live

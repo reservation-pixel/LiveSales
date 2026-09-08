@@ -144,12 +144,15 @@ const shareSeries = (series, group) =>
 
 // ---- render --------------------------------------------------------
 
-function renderPeriodBar(d) {
-  const p = d.period;
+// Reads `state` alone, so it can run the instant a control is clicked rather
+// than waiting for a response. On the deployment that wait is 2-13 seconds, and
+// if the request fails it never arrives at all — which is why the buttons read
+// as dead there while working fine locally.
+function paintControls() {
   // Relabel Week/Month while rolling is on. The toggle is an unlabelled icon,
-  // so the mode is shown where it actually applies rather than left to be
-  // inferred from a pressed state. Day is genuinely unaffected by rolling —
-  // resolve() returns before the rolling branch — so it keeps its label.
+  // so the mode is shown where it applies rather than inferred from a pressed
+  // state. Day is genuinely unaffected by rolling — resolve() returns before
+  // the rolling branch — so it keeps its label.
   const ROLLING_LABEL = { day: 'Daily', week: '7 days', month: '30 days', custom: 'Custom' };
   const CALENDAR_LABEL = { day: 'Daily', week: 'Weekly', month: 'Monthly', custom: 'Custom' };
   const labels = state.rolling ? ROLLING_LABEL : CALENDAR_LABEL;
@@ -160,16 +163,20 @@ function renderPeriodBar(d) {
     b.textContent = labels[b.dataset.g] ?? b.textContent;
   });
 
-  // Rolling only means something for Weekly and Monthly. It was previously
-  // clickable in Daily and silently did nothing, which is worse than being
-  // visibly unavailable.
-  const rollingApplies = state.granularity === 'week' || state.granularity === 'month';
   const rollingBtn = document.getElementById('rolling');
-  rollingBtn.disabled = !rollingApplies;
-  rollingBtn.title = rollingApplies
+  rollingBtn.setAttribute('aria-pressed', String(state.rolling));
+  // Rolling means nothing in Daily or Custom. It was previously clickable in
+  // Daily and silently did nothing, which is worse than being unavailable.
+  const applies = state.granularity === 'week' || state.granularity === 'month';
+  rollingBtn.disabled = !applies;
+  rollingBtn.title = applies
     ? 'Rolling: use the last 7 / 30 days instead of calendar weeks and months'
     : 'Rolling applies to Weekly and Monthly only';
-  document.getElementById('rolling').setAttribute('aria-pressed', String(state.rolling));
+}
+
+function renderPeriodBar(d) {
+  const p = d.period;
+  paintControls();
   document.getElementById('range-label').textContent = p.label;
   // Always name the comparison range. A partial month set against a partial
   // previous month is only trustworthy if you can see which days it used.
@@ -610,14 +617,38 @@ const query = () => {
   return q;
 };
 
+// Clicking twice quickly starts two requests. At 10s each on the deployment the
+// slower one can land second and overwrite the newer selection, so every
+// response carries the id of the request that asked for it and stale ones are
+// dropped.
+let requestId = 0;
+
+const setPending = (on) => document.getElementById('appbar').classList.toggle('loading', on);
+
 async function load() {
+  const mine = ++requestId;
+  setPending(true);
   try {
-    const res = await fetch(`/api/summary?${query()}`);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || res.statusText);
+    // Two phases. The first skips the comparison period, halving the upstream
+    // work, so figures appear roughly twice as fast; deltas are withheld and
+    // the page says so. The second fills them in, and by then the current
+    // period is already cached so it only costs the comparison.
+    const first = await fetch(`/api/summary?${query()}&phase=current`);
+    const data = await first.json();
+    if (mine !== requestId) return; // a newer click has already superseded this
+    if (!first.ok) throw new Error(data.error || first.statusText);
     state.data = data;
     render();
+
+    const full = await fetch(`/api/summary?${query()}`);
+    if (mine !== requestId) return;
+    const withDeltas = await full.json();
+    if (full.ok) {
+      state.data = withDeltas;
+      render();
+    }
   } catch (err) {
+    if (mine !== requestId) return;
     // The bar has room for a few words; a configuration error needs a sentence.
     // Short form in the status, full text in the page where it can be read.
     const st = document.getElementById('status');
@@ -627,6 +658,8 @@ async function load() {
     document.getElementById('notices').innerHTML =
       `<div class="notice warn"><b>Could not load data</b> — ${esc(err.message)}</div>`;
     document.getElementById('pagesub').textContent = 'Not loaded';
+  } finally {
+    if (mine === requestId) setPending(false);
   }
 }
 
@@ -723,6 +756,10 @@ function exportCSV() {
 // outlet, not by outlet+period, so stale ones would show the wrong month.
 function reload() {
   state.details.clear();
+  // Paint the selection immediately. Everything below waits on the network;
+  // this does not, and it is the difference between a button that responds and
+  // one that appears broken for ten seconds.
+  paintControls();
   load().then(() => state.expanded && loadDetail(state.expanded));
 }
 
@@ -822,14 +859,12 @@ if (sentinel && 'IntersectionObserver' in window) {
   ).observe(sentinel);
 }
 
-document.getElementById('datebtn').addEventListener('click', (e) => {
-  e.stopPropagation();
+document.getElementById('datebtn').addEventListener('click', () => {
   if (calOpen()) closeCalendar();
   else openCalendar();
 });
 
 document.getElementById('calendar').addEventListener('click', (e) => {
-  e.stopPropagation();
   const mstep = e.target.closest('[data-mstep]')?.dataset.mstep;
   if (mstep) {
     const [y, m] = state.calMonth.split('-').map(Number);
@@ -853,7 +888,16 @@ document.getElementById('calendar').addEventListener('mouseover', (e) => {
   }
 });
 
-document.addEventListener('click', () => { if (calOpen()) closeCalendar(); });
+// "Click outside closes it" has to actually mean outside. Previously this fired
+// on every click including the one that had just opened the calendar, so the
+// Custom button opened and shut it in the same tick. The date button escaped
+// only because it called stopPropagation — one control compensating for a rule
+// that was wrong.
+document.addEventListener('click', (e) => {
+  if (!calOpen()) return;
+  if (e.target.closest('#calendar, #datebtn, #granularity')) return;
+  closeCalendar();
+});
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && calOpen()) closeCalendar();
 });

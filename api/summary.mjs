@@ -15,9 +15,12 @@ export default guard(async (req, res) => {
   }
 
   const store = storeFor(45_000);
-  // Both ranges in one pass: the comparison is as load-bearing as the period
-  // itself, and fetching it separately would double the round trips.
-  await store.load([...range.dates, ...range.prev.dates]);
+  // Half of every request is the comparison period, which is needed only for
+  // the deltas — and the page already renders honestly without them. So the
+  // first phase fetches just what is on screen and answers roughly twice as
+  // fast; the client then asks for the full thing and the deltas fill in.
+  const currentOnly = req.query.phase === 'current';
+  await store.load(currentOnly ? range.dates : [...range.dates, ...range.prev.dates]);
 
   const body = summarise(store, range);
   // `truncated` means the budget ran out with days still missing. The page
@@ -25,6 +28,8 @@ export default guard(async (req, res) => {
   body.truncated = store.truncated;
   body.upstreamCalls = store.fetched;
   body.cached = kvAvailable();
+  body.phase = currentOnly ? 'current' : 'full';
+  body.warmHits = store.warmHits ?? 0;
   if (store.kvError) body.kvError = store.kvError;
   json(res, 200, body);
 });

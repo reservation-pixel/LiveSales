@@ -24,6 +24,21 @@ import { kvGetMany, kvSetMany } from './kv.mjs';
 // aggregate instead of silently serving figures grouped by the old one.
 const key = (outletId, date) => `v${MAP_VERSION}:${outletId}:${date}`;
 
+// Survives while the serverless container stays warm, which on a dashboard
+// being clicked around is most of the time. A closed day never changes, so a
+// hit is always valid. This is not a substitute for KV — a cold start still
+// refetches and containers do not share it — but it costs nothing and turns
+// repeat views instant.
+const warm = new Map();
+const WARM_MAX = 2000;
+
+const warmSet = (k, v) => {
+  // Bounded so a long-lived container cannot grow without limit. Oldest first,
+  // which for this access pattern is close enough to least-useful.
+  if (warm.size >= WARM_MAX) warm.delete(warm.keys().next().value);
+  warm.set(k, v);
+};
+
 // Today is still moving, so a cached copy of it is only trusted briefly.
 const TODAY_TTL_MS = 60_000;
 
@@ -32,9 +47,11 @@ const TODAY_TTL_MS = 60_000;
 // false` — and will ask again, so an incomplete answer beats a timeout.
 const DEFAULT_BUDGET_MS = 20_000;
 
-// Petpooja tolerated 12 rapid calls in testing, so a little parallelism is
-// safe and is the difference between a cold month loading and timing out.
-const CONCURRENCY = 4;
+// Measured on a 42-call Weekly fetch: 4 → 12.0s, 8 → 6.9s, 12 → 55.2s.
+// Petpooja throttles under sustained parallelism and the failure mode is a
+// cliff, not a slope, so 8 is as far as this goes. Raising it further makes the
+// dashboard dramatically slower, not faster.
+const CONCURRENCY = 8;
 
 const runPool = async (jobs, limit) => {
   let i = 0;
@@ -94,9 +111,17 @@ export class KvStore {
     const keys = [];
     for (const o of ACTIVE) for (const d of wanted) keys.push(key(o.id, d));
 
+    // Warm first: it is free and in-process.
     let cached = new Map();
+    const stillNeeded = [];
+    for (const k of keys) {
+      if (warm.has(k)) cached.set(k, warm.get(k));
+      else stillNeeded.push(k);
+    }
+    this.warmHits = cached.size;
+
     try {
-      cached = await kvGetMany(keys);
+      for (const [k, v] of await kvGetMany(stillNeeded)) cached.set(k, v);
     } catch (err) {
       // A KV outage must not take the dashboard down; it degrades to fetching.
       this.kvError = err.message;
@@ -156,6 +181,7 @@ export class KvStore {
         if (d > now) continue;
         const day = { ...aggregateDay(outlet.id, d, res.orders), fetchedAt: Date.now() };
         this.days.set(`${outlet.id}:${d}`, day);
+        warmSet(key(outlet.id, d), day);
         // Only days that are settled, or today, are worth persisting; a day
         // outside the asked-for window is a free byproduct and cached anyway.
         toWrite.push([key(outlet.id, d), day]);
