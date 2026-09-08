@@ -26,15 +26,23 @@ function todayKey() {
 
 const inr = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
 
+// False while the store has not read its cache. Every figure is unknown in that
+// window, and printing ₹0 would assert something false — it reads as "no sales"
+// when it means "nothing loaded".
+let dataReady = true;
+
+const count = (n) => (!dataReady || n == null ? '—' : inr.format(n));
+
 const money = (n) => {
+  if (!dataReady) return '—';
   if (n == null) return '—';
   if (n >= 1e7) return `₹${(n / 1e7).toFixed(2)}Cr`;
   if (n >= 1e5) return `₹${(n / 1e5).toFixed(2)}L`;
   return `₹${inr.format(Math.round(n))}`;
 };
 
-const exact = (n) => (n == null ? '—' : `₹${inr.format(Math.round(n))}`);
-const pct = (n) => (n == null ? '—' : `${n.toFixed(1)}%`);
+const exact = (n) => (!dataReady || n == null ? '—' : `₹${inr.format(Math.round(n))}`);
+const pct = (n) => (!dataReady || n == null ? '—' : `${n.toFixed(1)}%`);
 
 // Set true while the comparison period is still loading. A delta against a
 // half-loaded period is not approximately right, it is wrong — an uncached June
@@ -181,7 +189,10 @@ function renderPeriodBar(d) {
   const status = document.getElementById('status');
   const failing = d.health.filter((h) => h.lastError);
 
-  if (d.backfilling) {
+  if (!dataReady) {
+    dot.className = 'dot idle';
+    status.textContent = 'Starting up — reading cache…';
+  } else if (d.backfilling) {
     dot.className = 'dot idle';
     status.textContent = `Loading history… ${d.backfilling.done}/${d.backfilling.total}`;
   } else if (failing.length) {
@@ -221,9 +232,9 @@ function renderHeadline(t, period) {
     },
     {
       k: 'Orders', icon: 'orders', tone: 'orders',
-      v: inr.format(t.orders),
+      v: count(t.orders),
       d: t.prevOrders
-        ? `<span class="vs">${inr.format(t.prevOrders)} previous</span>`
+        ? `<span class="vs">${count(t.prevOrders)} previous</span>`
         : '<span class="vs">No orders yet</span>',
       series: of((x) => x.orders ?? 0),
     },
@@ -281,7 +292,7 @@ function renderBrands(brands) {
         ${metric(money(b.totalSales), 'Total Sales', TONE.sales)}
         ${metric(pct(b.dessertPct), 'Desserts', TONE.dessert, exact(b.dessertSales))}
         ${metric(pct(b.drinkPct), 'Drinks', TONE.drink, exact(b.drinkSales))}
-        ${metric(inr.format(b.orders), 'Orders', TONE.orders)}
+        ${metric(count(b.orders), 'Orders', TONE.orders)}
         <div class="bmetric trailing">
           <b class="small">${deltaHTML(b.salesDelta)}</b>
           <span class="bsub">vs previous</span>
@@ -368,7 +379,7 @@ function renderRows(d) {
         <td class="num">${deltaHTML(o.salesDelta)}</td>
         ${shareCell(o.dessertPct, o.dessertSales, maxDessert, 'dessert', o.series, 'desserts', '#d98cc4')}
         ${shareCell(o.drinkPct, o.drinkSales, maxDrink, 'drink', o.series, 'drinks', '#5cc8d8')}
-        <td class="num">${inr.format(o.orders)}</td>
+        <td class="num">${count(o.orders)}</td>
         <td class="num">${exact(o.aov)}</td>
         <td><span class="badge ${st.cls}">${st.label}</span></td>
       </tr>
@@ -426,7 +437,9 @@ function renderNotices(d) {
   </div>`);
 
   if (!d.complete && !d.backfilling) {
-    bits.push(`<div class="notice warn">Some days in this period are not loaded yet — figures may rise as history arrives.</div>`);
+    bits.push(`<div class="notice warn">Some days in this period are not loaded yet — figures may rise as history arrives.${
+      d.truncated ? ' Still fetching; this refreshes itself.' : ''
+    }</div>`);
   }
   if (!d.prevComplete) {
     bits.push(`<div class="notice warn">
@@ -610,7 +623,8 @@ async function loadDetail(id) {
 function render() {
   const d = state.data;
   if (!d) return;
-  comparable = d.prevComplete !== false;
+  dataReady = d.ready !== false;
+  comparable = dataReady && d.prevComplete !== false;
   renderPeriodBar(d);
   renderHeadline(d.total, d.period);
   renderBrands(d.brands);
@@ -637,7 +651,9 @@ function renderHeaderTotals(t) {
 // estate is behind it. The reference put a personal greeting here; there is no
 // login, so it says what the page is instead of who it thinks you are.
 function renderPageHead(d) {
-  const reporting = d.health.filter((h) => !h.lastError).length;
+  // Reporting means it has actually answered, not merely that it has not
+  // errored yet — before the first poll those are not the same claim.
+  const reporting = d.health.filter((h) => h.lastSuccessAt && !h.lastError).length;
   const bits = [
     d.period.label,
     `${reporting} of ${d.health.length} outlets reporting`,
@@ -855,5 +871,10 @@ load();
 // Only the live view needs refreshing; a closed period cannot change, and a
 // number that appears to update invites doubt about whether it settled.
 setInterval(() => {
-  if (state.data?.period.live || state.data?.backfilling) reload();
+  const d = state.data;
+  if (!d) return;
+  // `truncated` is the serverless deployment saying it ran out of time with
+  // days still missing. It has cached whatever it did fetch, so asking again
+  // is cheap and finishes the job.
+  if (d.period.live || d.backfilling || d.truncated || d.complete === false) reload();
 }, 30_000);

@@ -214,3 +214,60 @@ The loosened layer is not a tidying detail: about a fifth of all revenue arrives
 under a re-cut name, and `New Drinks.` is among the largest drinks categories in
 the data. Without it, tens of lakhs of drinks and desserts sit in Other and both
 headline shares read low.
+
+---
+
+## Deploying to Vercel
+
+The dashboard runs two ways from one codebase.
+
+| | Local | Vercel |
+|---|---|---|
+| Entry point | `server.mjs` | `api/*.mjs` |
+| Store | `store.mjs` — disk, in-memory | `store-kv.mjs` — Upstash Redis |
+| When it fetches | background poll, every 60s | inside the request |
+| Cache | `data/` | KV, keyed by the category map version |
+
+**Why it needed rebuilding.** Vercel suspends the container the moment a
+response is sent, so the poll loop and backfill in `server.mjs` get frozen
+mid-request. The first deployment recorded fetches taking 244 seconds against a
+30-second timeout — not slow network, a process stopped and resumed much later.
+`cachedDays: 0` confirmed nothing ever completed. So on Vercel all fetching
+happens before the response is returned, and the cache lives in KV.
+
+### One-time setup
+
+1. In the Vercel project → **Storage** → add the **Upstash Redis / KV**
+   integration. It injects `KV_REST_API_URL` and `KV_REST_API_TOKEN`
+   automatically. The free tier is far more than the ~2.4 MB this needs.
+2. In **Settings → Environment Variables**, add the four Petpooja values from
+   your local `.env`: `PP_APP_KEY`, `PP_APP_SECRET`, `PP_ACCESS_TOKEN`,
+   `PP_COOKIE`.
+3. Redeploy.
+
+`GET /api/health` reports whether both are wired up — it names what is missing
+rather than failing silently.
+
+### What to expect
+
+Measured against live data, with concurrency 4:
+
+| View | Cold (empty KV) | Warm |
+|---|---|---|
+| Day | 3.0s, 6 upstream calls | 3ms, 0 calls |
+| Week | 11.2s, 42 calls | 6ms, 0 calls |
+| Month | 12.3s, 48 calls | 7ms, 0 calls |
+
+A closed day is fetched once, ever — it cannot change, so it is never refetched.
+Only today expires, after 60 seconds. That is what makes the warm path free.
+
+If a request runs out of its 45-second budget it returns what it has with
+`truncated: true` and `complete: false`; the page says so and asks again, and
+whatever was fetched is already cached. A partial, honest answer beats a
+timeout.
+
+### Note on access
+
+There is no login. Anyone with the URL sees every outlet's live sales. That was
+a deliberate decision; if it ever needs closing, the cheapest fix is Vercel's
+built-in password protection on the project, which needs no code change.

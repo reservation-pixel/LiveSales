@@ -39,6 +39,10 @@ export class Store {
     /** @type {Map<string, {lastSuccessAt: number|null, lastError: string|null, lastMs: number|null}>} */
     this.health = new Map(ACTIVE.map((o) => [o.id, { lastSuccessAt: null, lastError: null, lastMs: null }]));
     this.backfill = { running: false, done: 0, total: 0 };
+    // The HTTP server starts listening before start() has read the cache, so
+    // there is a window where every figure is legitimately unknown. Zero and
+    // unknown are not the same thing and must not render the same way.
+    this.ready = false;
     this.inFlight = new Set();
     this.timer = null;
   }
@@ -193,6 +197,9 @@ export class Store {
    */
   async start() {
     await this.loadFromDisk();
+    // Cache is in memory: historical periods are answerable now, even though
+    // today's figures are still a poll away.
+    this.ready = true;
     await this.pollToday();
 
     const from = `${addMonths(today(), -this.backfillMonths).slice(0, 7)}-01`;

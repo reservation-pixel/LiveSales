@@ -1,0 +1,14 @@
+{
+  "name": "bookends-live-sales",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Live sales dashboard over the Petpooja Orders API",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test *.test.mjs",
+    "verify": "node verify.mjs",
+    "scan": "node scan-categories.mjs"
+  },
+  "engines": { "node": ">=20" }
+}
