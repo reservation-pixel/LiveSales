@@ -2,7 +2,6 @@
 
 import { credentialsFromEnv } from '../petpooja.mjs';
 import { KvStore } from '../store-kv.mjs';
-import { kvAvailable } from '../kv.mjs';
 import { GRANULARITIES, daysBetween, isDateKey, today } from '../periods.mjs';
 
 const MAX_CUSTOM_DAYS = 366;
@@ -43,21 +42,13 @@ export const readPeriod = (q) => {
  * built fresh each time and warmed from KV — which is the whole reason the
  * cache lives there rather than in memory or on disk.
  */
-export const storeFor = (budgetMs) => {
-  if (!kvAvailable()) {
-    throw new Error(
-      'No KV store configured. Add the Upstash/Vercel KV integration to this ' +
-        'project — it injects KV_REST_API_URL and KV_REST_API_TOKEN.',
-    );
-  }
-  return new KvStore({ creds: credentialsFromEnv(), budgetMs });
-};
+export const storeFor = (budgetMs) => new KvStore({ creds: credentialsFromEnv(), budgetMs });
 
 /** Turns a thrown credential or config error into a readable 500. */
 export const guard = (handler) => async (req, res) => {
   try {
     await handler(req, res);
   } catch (err) {
-    json(res, /credentials|KV/i.test(err.message) ? 503 : 500, { error: err.message });
+    json(res, /credentials/i.test(err.message) ? 503 : 500, { error: err.message });
   }
 };

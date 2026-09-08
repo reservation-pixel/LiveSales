@@ -17,13 +17,18 @@ export default guard(async (req, res) => {
   } catch (err) {
     credError = err.message;
   }
+  const cached = kvAvailable();
   json(res, 200, {
     mode: 'serverless',
-    kv: kvAvailable() ? 'configured' : 'MISSING',
-    kvUrlHost: kvConfig().url ? new URL(kvConfig().url).host : null,
+    // Optional. Without it the dashboard still works, it just refetches every
+    // time instead of remembering closed days.
+    cache: cached ? 'kv' : 'none',
+    kvUrlHost: cached ? new URL(kvConfig().url).host : null,
     credentials: creds ?? 'MISSING',
     credError,
     outlets: { reporting: ACTIVE.length, withoutOrdersApi: INACTIVE.length },
-    note: 'Data is fetched per request and cached in KV; there is no background poll.',
+    note: cached
+      ? 'Closed days are cached in KV and fetched once. Only today expires.'
+      : 'No cache: every request refetches. Daily ~2s, Weekly ~10s, a full Month may exceed the time budget and return partial figures — add an Upstash KV integration to fix that.',
   });
 });

@@ -436,6 +436,16 @@ function renderNotices(d) {
     <span class="muted">${d.notReporting.map((o) => esc(o.name)).join(' · ')}</span>
   </div>`);
 
+  // Uncached deployment: a long period can exceed the request budget. Say why,
+  // rather than leaving a short total looking like a bad trading month.
+  if (d.truncated && d.cached === false) {
+    bits.push(`<div class="notice warn">
+      <b>Period too long to load in one request</b> — this deployment has no cache, so every
+      figure is refetched. Daily and Weekly are fine; a full month needs an Upstash KV
+      integration on the project. Showing ${d.period.days} day${d.period.days === 1 ? '' : 's'} fetched so far.
+    </div>`);
+  }
+
   if (!d.complete && !d.backfilling) {
     bits.push(`<div class="notice warn">Some days in this period are not loaded yet — figures may rise as history arrives.${
       d.truncated ? ' Still fetching; this refreshes itself.' : ''
@@ -608,8 +618,15 @@ async function load() {
     state.data = data;
     render();
   } catch (err) {
-    document.getElementById('status').textContent = `Error: ${err.message}`;
+    // The bar has room for a few words; a configuration error needs a sentence.
+    // Short form in the status, full text in the page where it can be read.
+    const st = document.getElementById('status');
+    st.textContent = 'Cannot load data';
+    st.title = err.message;
     document.getElementById('dot').className = 'dot bad';
+    document.getElementById('notices').innerHTML =
+      `<div class="notice warn"><b>Could not load data</b> — ${esc(err.message)}</div>`;
+    document.getElementById('pagesub').textContent = 'Not loaded';
   }
 }
 

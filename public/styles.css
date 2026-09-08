@@ -148,7 +148,7 @@ body::before {
   display: flex; align-items: center; gap: 22px;
 }
 
-.brandzone { display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0; }
+.brandzone { display: flex; align-items: center; gap: 16px; flex: 1 1 auto; min-width: 0; overflow: hidden; }
 
 .wordmark { display: flex; flex-direction: column; line-height: 1.06; flex: none; }
 .wordmark strong { font-size: 15px; font-weight: 700; letter-spacing: 0.13em; }
@@ -302,7 +302,7 @@ body::before {
    here stacked, and only one is ever visible, so the space is never empty and
    the bar never changes height. */
 .headerslot {
-  position: relative; min-width: 0;
+  position: relative; min-width: 0; overflow: hidden;
   display: flex; align-items: center;
   height: 38px; min-width: 168px;
 }
@@ -329,7 +329,16 @@ body::before {
 
 /* ---- status ---- */
 
-.status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-3); flex: none; }
+/* Shrinkable, and capped. At flex:none a long message — a config error, say —
+   pushed the bar past its width and the wordmark overlapped the buttons.
+   The full text stays available via the title attribute. */
+.status {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--ink-3);
+  flex: 0 1 auto; min-width: 0; max-width: 30ch;
+}
+#status { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status.bad { color: var(--down); }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--up); }
 .dot.idle { background: var(--ink-3); }
 .dot.bad { background: var(--down); }

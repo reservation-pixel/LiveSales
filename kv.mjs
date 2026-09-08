@@ -23,7 +23,9 @@ export const kvAvailable = (env = process.env) => {
 
 const call = async (body, env) => {
   const { url, token } = kvConfig(env);
-  if (!url || !token) throw new Error('KV is not configured');
+  // No store configured is a valid deployment, not an error. The dashboard
+  // still works without one; it just refetches instead of remembering.
+  if (!url || !token) return null;
   const res = await fetch(`${url}/pipeline`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -45,13 +47,14 @@ const call = async (body, env) => {
  */
 export const kvGetMany = async (keys, env = process.env) => {
   const out = new Map();
-  if (!keys.length) return out;
+  if (!keys.length || !kvAvailable(env)) return out;
 
   // Upstash caps a pipeline body; chunk rather than risk a 413 on a wide range.
   const CHUNK = 128;
   for (let i = 0; i < keys.length; i += CHUNK) {
     const slice = keys.slice(i, i + CHUNK);
     const rows = await call(slice.map((k) => ['GET', k]), env);
+    if (!rows) return out;
     rows.forEach((row, j) => {
       if (row?.result == null) return;
       try {
@@ -67,7 +70,7 @@ export const kvGetMany = async (keys, env = process.env) => {
 
 /** Write many key/value pairs in one round trip. Values are JSON-encoded. */
 export const kvSetMany = async (entries, env = process.env) => {
-  if (!entries.length) return;
+  if (!entries.length || !kvAvailable(env)) return;
   const CHUNK = 64;
   for (let i = 0; i < entries.length; i += CHUNK) {
     await call(

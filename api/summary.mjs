@@ -1,5 +1,6 @@
 import { resolve } from '../periods.mjs';
 import { summarise } from '../summarise.mjs';
+import { kvAvailable } from '../kv.mjs';
 import { guard, json, readPeriod, storeFor } from './_lib.mjs';
 
 export const config = { maxDuration: 60 };
@@ -23,6 +24,7 @@ export default guard(async (req, res) => {
   // already renders a partial period honestly and will ask again.
   body.truncated = store.truncated;
   body.upstreamCalls = store.fetched;
+  body.cached = kvAvailable();
   if (store.kvError) body.kvError = store.kvError;
   json(res, 200, body);
 });
