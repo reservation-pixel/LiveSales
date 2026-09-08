@@ -7,6 +7,12 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- Sits below the bar in the stacking order, so the picker inside the bar
+       stays lit while the page behind it is dimmed and unclickable. Must be a
+       body-level sibling: .appbar has a backdrop-filter, which makes it the
+       containing block for any fixed-position descendant. -->
+  <div class="calscrim" id="calscrim" hidden></div>
+
   <!-- One bar: identity, controls, slot, status. Outside .wrap so it spans the
        viewport; the inner element holds its contents to the same column as the
        page below. -->

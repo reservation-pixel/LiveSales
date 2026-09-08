@@ -284,6 +284,16 @@ body::before {
 }
 .calendar[hidden] { display: none; }
 
+/* z-index 9 against the bar's 10: dims the page, never the picker. */
+.calscrim {
+  position: fixed; inset: 0; z-index: 9;
+  background: rgba(6, 9, 13, 0.55);
+  animation: scrimin 120ms ease-out;
+}
+.calscrim[hidden] { display: none; }
+@keyframes scrimin { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .calscrim { animation: none; } }
+
 /* The band carries the selection, so it is legible before you commit to it. */
 .calband {
   padding: 14px 18px 12px;

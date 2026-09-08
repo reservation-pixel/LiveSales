@@ -493,11 +493,13 @@ function openCalendar(mode) {
     ? { from: state.data.period.from, to: state.data.period.to }
     : { from: state.anchor, to: state.anchor };
   document.getElementById('calendar').hidden = false;
+  document.getElementById('calscrim').hidden = false;
   renderCalendar();
 }
 
 function closeCalendar() {
   document.getElementById('calendar').hidden = true;
+  document.getElementById('calscrim').hidden = true;
   hoverDate = null;
   pending = null;
   state.calDrop = false;
@@ -532,6 +534,10 @@ function availableMonths() {
 function pendingLabel() {
   const sel = pending ?? (state.data ? { from: state.data.period.from, to: state.data.period.to } : null);
   if (!sel) return '—';
+  if (state.pickerMode === 'month') {
+    const [my, mm] = sel.from.split('-').map(Number);
+    return `${CAL_MONTHS[mm - 1]} ${my}`;
+  }
   if (sel.from === sel.to) {
     const [y, m, d] = sel.from.split('-').map(Number);
     return `${DOW[dayOfWeek(y, m, d)]}, ${d} ${CAL_MONTHS[m - 1].slice(0, 3)}`;
@@ -895,9 +901,12 @@ document.getElementById('calendar').addEventListener('click', (e) => {
   if (month) {
     state.calMonth = month;
     if (state.pickerMode === 'month') {
-      // The list is the whole picker here, so choosing is deciding.
-      pending = { from: `${month}-01`, to: `${month}-01` };
-      commitCalendar();
+      // Provisional, exactly like the day and week grids. Committing on tap
+      // meant the picker applied and vanished without OK ever being pressed —
+      // from the outside that is indistinguishable from it closing itself.
+      const [my, mm] = month.split('-').map(Number);
+      pending = { from: `${month}-01`, to: dkey(my, mm, daysInMonth(my, mm)) };
+      renderCalendar();
       return;
     }
     state.calDrop = false;
@@ -909,23 +918,10 @@ document.getElementById('calendar').addEventListener('click', (e) => {
   if (date) pickDate(date);
 });
 
-// "Click outside closes it" has to actually mean outside. Previously this fired
-// on every click including the one that had just opened the calendar, so the
-// Custom button opened and shut it in the same tick. The date button escaped
-// only because it called stopPropagation — one control compensating for a rule
-// that was wrong.
-document.addEventListener('click', (e) => {
-  if (!calOpen()) return;
-  // composedPath(), not closest(). Picking a date re-renders the popover
-  // synchronously, so by the time this fires e.target has been detached from
-  // the document and closest() returns null — the guard failed, the calendar
-  // closed itself, and the selection was discarded before OK could apply it.
-  // The path is captured when the event is dispatched and survives the
-  // re-render.
-  const inside = e.composedPath().some((n) => n.id === 'calendar' || n.id === 'granularity');
-  if (inside) return;
-  closeCalendar();
-});
+// The picker is modal, like the Material dialog it is modelled on: a scrim
+// covers the page and CANCEL, OK or Escape are the only ways out. Dismissing on
+// any click landing outside the 284px popover threw the selection away on a
+// stray tap — from the user's side, the picker closing on its own.
 document.addEventListener('keydown', (e) => {
   if (!calOpen()) return;
   // Escape discards the provisional pick; Enter is the same as OK.

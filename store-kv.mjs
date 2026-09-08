@@ -120,9 +120,17 @@ export class KvStore {
       this.kvError = err.message;
     }
     for (const o of ACTIVE) {
+      const h = this.health.get(o.id);
       for (const d of wanted) {
         const hit = cached.get(key(o.id, d));
-        if (hit) this.days.set(`${o.id}:${d}`, hit);
+        if (!hit) continue;
+        this.days.set(`${o.id}:${d}`, hit);
+        // A cache hit is still evidence that the outlet reported — the figures
+        // on screen came from it. Keying "reporting" off whether *this*
+        // invocation happened to fetch made all six outlets read "Waiting"
+        // whenever the warm container served the request, which on the
+        // deployment is the common case, not the exception.
+        if (hit.fetchedAt > (h.lastSuccessAt ?? 0)) h.lastSuccessAt = hit.fetchedAt;
       }
     }
     this.ready = true;
