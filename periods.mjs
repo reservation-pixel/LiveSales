@@ -31,6 +31,30 @@ export const daysBetween = (a, b) => Math.round((toUTC(b) - toUTC(a)) / DAY_MS);
 export const today = (now = new Date()) =>
   `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
+/** The same day-of-month `n` months away, snapped to the 1st. */
+export const addMonths = (dateKey, n) => {
+  const [y, m] = dateKey.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1 + n, 1, 12));
+  return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-01`;
+};
+
+/**
+ * What the dashboard will answer for — a declared window, not a report of what
+ * happens to be cached.
+ *
+ * These are different questions and conflating them is what left the pickers
+ * offering two days: a serverless request only ever loads its own period, so
+ * "what is in memory" was the period itself. What may be *asked for* is a
+ * policy decision, and both servers fetch missing days on demand anyway.
+ *
+ * Runs from the 1st of the month `months - 1` back, so a 6-month window always
+ * contains six whole months to choose from.
+ */
+export const historyWindow = (months = 6, now = today()) => ({
+  from: addMonths(now, -(months - 1)),
+  to: now,
+});
+
 /** Inclusive list of date keys from `from` to `to`. */
 export const datesInRange = (from, to) => {
   const out = [];

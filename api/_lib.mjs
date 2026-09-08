@@ -42,7 +42,10 @@ export const readPeriod = (q) => {
  * built fresh each time and warmed from KV — which is the whole reason the
  * cache lives there rather than in memory or on disk.
  */
-export const storeFor = (budgetMs) => new KvStore({ creds: credentialsFromEnv(), budgetMs });
+const HISTORY_MONTHS = Number(process.env.HISTORY_MONTHS || 6);
+
+export const storeFor = (budgetMs) =>
+  new KvStore({ creds: credentialsFromEnv(), budgetMs, historyMonths: HISTORY_MONTHS });
 
 /** Turns a thrown credential or config error into a readable 500. */
 export const guard = (handler) => async (req, res) => {

@@ -23,6 +23,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 4000);
 const POLL_MS = Number(process.env.POLL_MS || 60_000);
 const BACKFILL_MONTHS = Number(process.env.BACKFILL_MONTHS || 2);
+// How far back the pickers may reach. Deliberately not the same as
+// BACKFILL_MONTHS: that governs what is warmed at startup, this governs what
+// can be asked for. Older months are fetched on demand and then cached.
+const HISTORY_MONTHS = Number(process.env.HISTORY_MONTHS || 6);
 
 // An allowlist, not a directory listing. Serving the folder would publish .env
 // — and with it the API credentials — to anything that can reach this port.
@@ -81,7 +85,7 @@ const main = async () => {
     process.exit(1);
   }
 
-  const store = new Store({ creds, pollMs: POLL_MS, backfillMonths: BACKFILL_MONTHS });
+  const store = new Store({ creds, pollMs: POLL_MS, backfillMonths: BACKFILL_MONTHS, historyMonths: HISTORY_MONTHS });
 
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, `http://localhost:${PORT}`);

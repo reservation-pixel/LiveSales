@@ -65,9 +65,10 @@ const runPool = async (jobs, limit) => {
 };
 
 export class KvStore {
-  constructor({ creds, budgetMs = DEFAULT_BUDGET_MS }) {
+  constructor({ creds, budgetMs = DEFAULT_BUDGET_MS, historyMonths = 6 }) {
     this.creds = creds;
     this.budgetMs = budgetMs;
+    this.historyMonths = historyMonths;
     this.days = new Map();
     this.health = new Map(
       ACTIVE.map((o) => [o.id, { lastSuccessAt: null, lastError: null, lastMs: null }]),
@@ -90,14 +91,6 @@ export class KvStore {
     return ACTIVE.every((o) => dates.every((d) => this.days.has(`${o.id}:${d}`)));
   }
 
-  span() {
-    let from = today();
-    for (const k of this.days.keys()) {
-      const date = k.slice(k.indexOf(':') + 1);
-      if (date < from) from = date;
-    }
-    return { from, to: today() };
-  }
 
   /**
    * Fill `dates` for every active outlet: KV first, then upstream for whatever

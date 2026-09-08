@@ -6,7 +6,7 @@
 
 import { ACTIVE, BRANDS, INACTIVE, INACTIVE_REASON, outletsOfBrand } from './outlets.mjs';
 import { combine, sumDays, truncateToHour, delta, pointDelta } from './aggregate.mjs';
-import { bucketsFor, today } from './periods.mjs';
+import { bucketsFor, historyWindow, today } from './periods.mjs';
 
 export const summarise = (store, range) => {
   // A period ending today has only part-traded. Cutting the matching day of the
@@ -100,8 +100,11 @@ export const summarise = (store, range) => {
     notReportingReason: INACTIVE_REASON,
     health: store.healthReport(),
     backfilling: store.backfill.running ? store.backfill : null,
-    // What the calendar may offer. Anything outside this has no data behind it.
-    available: store.span(),
+    // What may be asked for — a declared window, not a report of what is
+    // cached. Those are different questions, and answering the second left the
+    // pickers offering two days on a serverless deployment, where a request
+    // only ever loads its own period.
+    available: historyWindow(store.historyMonths ?? 6),
     // False only in the moment between the port opening and the cache being
     // read. Distinguishes "no sales" from "nothing loaded yet".
     ready: store.ready,

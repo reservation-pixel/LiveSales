@@ -17,7 +17,7 @@ import { ACTIVE, BY_ID } from './outlets.mjs';
 import { fetchOrders } from './petpooja.mjs';
 import { aggregateDay, emptyDay } from './aggregate.mjs';
 import { MAP_VERSION } from './categories.mjs';
-import { addDays, datesInRange, today } from './periods.mjs';
+import { addDays, addMonths, datesInRange, historyWindow, today } from './periods.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(HERE, 'data');
@@ -29,10 +29,11 @@ const key = (outletId, date) => `${outletId}:${date}`;
 const fileFor = (outletId, date) => join(DATA_DIR, outletId, `${date}.json`);
 
 export class Store {
-  constructor({ creds, pollMs = 60_000, backfillMonths = 2, log = console.log }) {
+  constructor({ creds, pollMs = 60_000, backfillMonths = 2, historyMonths = 6, log = console.log }) {
     this.creds = creds;
     this.pollMs = pollMs;
     this.backfillMonths = backfillMonths;
+    this.historyMonths = historyMonths;
     this.log = log;
     /** @type {Map<string, object>} outletId:date → day aggregate */
     this.days = new Map();
@@ -61,21 +62,6 @@ export class Store {
     return ACTIVE.every((o) => dates.every((d) => this.days.has(key(o.id, d))));
   }
 
-  /**
-   * The span of dates that have been fetched, so the calendar can dim what
-   * cannot be picked. An undimmed date with nothing behind it renders an empty
-   * dashboard, which reads as a collapse in trade rather than a gap in loading.
-   * `to` is always today: it has data by definition, even before the first
-   * order of the day lands.
-   */
-  span() {
-    let from = today();
-    for (const k of this.days.keys()) {
-      const date = k.slice(k.indexOf(':') + 1);
-      if (date < from) from = date;
-    }
-    return { from, to: today() };
-  }
 
   // ---- persistence ---------------------------------------------------
   // Only closed days are written. Today is still moving, so caching it would
@@ -91,7 +77,7 @@ export class Store {
   async loadFromDisk() {
     let loaded = 0;
     let stale = 0;
-    const from = addDays(today(), -(this.backfillMonths + 1) * 31);
+    const from = historyWindow(this.historyMonths).from;
     for (const outlet of ACTIVE) {
       for (const date of datesInRange(from, today())) {
         if (this.days.has(key(outlet.id, date))) continue;
@@ -229,10 +215,5 @@ export class Store {
   }
 }
 
-const addMonths = (dateKey, n) => {
-  const [y, m] = dateKey.split('-').map(Number);
-  const dt = new Date(Date.UTC(y, m - 1 + n, 1, 12));
-  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-01`;
-};
 
 export { BY_ID };

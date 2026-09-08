@@ -1,7 +1,7 @@
 // node --test periods.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolve, step, addDays, datesInRange, rangeLabel, bucketsFor } from './periods.mjs';
+import { resolve, step, addDays, addMonths, datesInRange, historyWindow, rangeLabel, bucketsFor } from './periods.mjs';
 
 const NOW = '2026-09-07'; // a Monday
 
@@ -198,4 +198,46 @@ test('a reversed or malformed custom range is refused, not silently fixed', () =
   assert.throws(() => resolve('custom', '2026-09-11', { to: '2026-09-08', now: NOW }), /ends before it starts/);
   assert.throws(() => resolve('custom', '2026-09-08', { now: NOW }), /custom range end/);
   assert.throws(() => resolve('custom', '2026-09-08', { to: 'not-a-date', now: NOW }), /custom range end/);
+});
+
+// ---- history window --------------------------------------------------
+// What the dashboard offers, as opposed to what it happens to have cached.
+// Conflating those two left the pickers offering a two-day range.
+
+test('the history window spans whole months back from today', () => {
+  const w = historyWindow(6, '2026-09-08');
+  assert.equal(w.from, '2026-04-01', 'starts on the 1st, five months back');
+  assert.equal(w.to, '2026-09-08');
+});
+
+test('the window contains exactly the number of months asked for', () => {
+  const months = (w) => {
+    let n = 0;
+    let [y, m] = w.from.split('-').map(Number);
+    const [ty, tm] = w.to.split('-').map(Number);
+    while (y < ty || (y === ty && m <= tm)) { n += 1; if (++m > 12) { m = 1; y += 1; } }
+    return n;
+  };
+  assert.equal(months(historyWindow(6, '2026-09-08')), 6);
+  assert.equal(months(historyWindow(1, '2026-09-08')), 1);
+  assert.equal(months(historyWindow(12, '2026-09-08')), 12);
+});
+
+test('the window crosses the year boundary', () => {
+  // Where this codebase's date arithmetic has been wrong before.
+  assert.deepEqual(historyWindow(6, '2026-02-15'), { from: '2025-09-01', to: '2026-02-15' });
+  assert.deepEqual(historyWindow(3, '2026-01-05'), { from: '2025-11-01', to: '2026-01-05' });
+});
+
+test('the window always starts on the first of a month', () => {
+  for (const day of ['2026-09-01', '2026-09-30', '2026-02-28', '2024-02-29']) {
+    assert.match(historyWindow(6, day).from, /-01$/, `from ${day}`);
+  }
+});
+
+test('addMonths snaps to the 1st and survives year ends', () => {
+  assert.equal(addMonths('2026-09-08', -1), '2026-08-01');
+  assert.equal(addMonths('2026-01-15', -1), '2025-12-01');
+  assert.equal(addMonths('2026-12-15', 1), '2027-01-01');
+  assert.equal(addMonths('2026-09-08', 0), '2026-09-01');
 });
