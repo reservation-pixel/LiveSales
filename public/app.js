@@ -1,13 +1,19 @@
 // Dashboard front end. One state object, one fetch, one render.
 
 const state = {
-  granularity: 'day',
+  // 'live' is a place to stand, not a period the API knows: it is the day view
+  // pinned to today, and `query()` turns it back into one on the way out.
+  granularity: 'live',
   anchor: todayKey(),
-  rolling: false,
   // Custom mode only: anchor is the range start, `to` the end.
   to: null,
   // The month the calendar is showing, independent of what is selected.
   calMonth: null,
+  // What the open picker is choosing: 'day', 'week' or 'month'. Set by the
+  // button that opened it.
+  pickerMode: 'day',
+  // Month/year list open inside the picker.
+  calDrop: false,
   search: '',
   sort: { key: 'totalSales', dir: -1 },
   expanded: null,
@@ -20,6 +26,8 @@ function todayKey() {
   const p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
+
+const isLive = () => state.granularity === 'live';
 
 // ---- formatting ----------------------------------------------------
 // Indian numerals: a wall display is read at a glance, and ₹28,41,203 is not.
@@ -149,48 +157,13 @@ const shareSeries = (series, group) =>
 // if the request fails it never arrives at all — which is why the buttons read
 // as dead there while working fine locally.
 function paintControls() {
-  // Relabel Week/Month while rolling is on. The toggle is an unlabelled icon,
-  // so the mode is shown where it applies rather than inferred from a pressed
-  // state. Day is genuinely unaffected by rolling — resolve() returns before
-  // the rolling branch — so it keeps its label.
-  const ROLLING_LABEL = { day: 'Daily', week: '7 days', month: '30 days', custom: 'Custom' };
-  const CALENDAR_LABEL = { day: 'Daily', week: 'Weekly', month: 'Monthly', custom: 'Custom' };
-  const labels = state.rolling ? ROLLING_LABEL : CALENDAR_LABEL;
-
   document.querySelectorAll('#granularity button').forEach((b) => {
     b.setAttribute('aria-pressed', String(b.dataset.g === state.granularity));
-    // Text only. data-g is what the click handler reads and must not change.
-    b.textContent = labels[b.dataset.g] ?? b.textContent;
   });
-
-  const rollingBtn = document.getElementById('rolling');
-  rollingBtn.setAttribute('aria-pressed', String(state.rolling));
-  // Rolling means nothing in Daily or Custom. It was previously clickable in
-  // Daily and silently did nothing, which is worse than being unavailable.
-  const applies = state.granularity === 'week' || state.granularity === 'month';
-  rollingBtn.disabled = !applies;
-  rollingBtn.title = applies
-    ? 'Rolling: use the last 7 / 30 days instead of calendar weeks and months'
-    : 'Rolling applies to Weekly and Monthly only';
 }
 
 function renderPeriodBar(d) {
-  const p = d.period;
   paintControls();
-  document.getElementById('range-label').textContent = p.label;
-  // Always name the comparison range. A partial month set against a partial
-  // previous month is only trustworthy if you can see which days it used.
-  // Name the comparison range, and say when it was cut short to match. A
-  // part-traded day set against a whole one is only trustworthy if the reader
-  // can see that both sides stop at the same point.
-  const trimmed =
-    p.comparedToHour != null
-      ? ` to ${String(p.comparedToHour).padStart(2, '0')}:00`
-      : p.open
-        ? ` · ${p.days} day${p.days === 1 ? '' : 's'} so far`
-        : '';
-  document.getElementById('prev-label').textContent = `vs ${p.prevLabel}${trimmed}`;
-  document.getElementById('next').disabled = p.to >= todayKey();
 
   const dot = document.getElementById('dot');
   const status = document.getElementById('status');
@@ -205,7 +178,7 @@ function renderPeriodBar(d) {
   } else if (failing.length) {
     dot.className = 'dot bad';
     status.textContent = `${failing.length} outlet${failing.length === 1 ? '' : 's'} not responding`;
-  } else if (p.live) {
+  } else if (d.period.live) {
     dot.className = 'dot live';
     status.textContent = `Live · updated ${new Date(d.generatedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`;
   } else {
@@ -485,122 +458,173 @@ const addDaysKey = (key, n) => {
   const dt = new Date(Date.UTC(y, m - 1, d + n, 12));
   return dkey(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate());
 };
-// Mon = 0 … Sun = 6, matching the server's week start.
-const monIndex = (y, m, d) => (new Date(Date.UTC(y, m - 1, d, 12)).getUTCDay() + 6) % 7;
+// Sunday = 0, for the grid's leading blanks. This is column layout only: the
+// data layer's week is still Mon–Sun, and the highlight below is driven by the
+// resolved period, so a Weekly selection wraps across two rows rather than
+// pretending to be the Sun–Sat row it sits in.
+const sunIndex = (y, m, d) => new Date(Date.UTC(y, m - 1, d, 12)).getUTCDay();
 
-// Half-finished range: the first click in Custom mode, before the second.
-let pendingStart = null;
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const dayOfWeek = (y, m, d) => new Date(Date.UTC(y, m - 1, d, 12)).getUTCDay();
+
+// "4 Aug". Abbreviated from the full month names already declared above rather
+// than a second table that could drift out of step with the first.
+const shortDate = (key) => {
+  const [, m, d] = key.split('-').map(Number);
+  return `${d} ${CAL_MONTHS[m - 1].slice(0, 3)}`;
+};
+
 let hoverDate = null;
+
+// What the picker currently shows as chosen. Held here rather than written
+// straight into `state`, so exploring dates costs nothing: on the deployment
+// every applied change is a 2-13 second request.
+let pending = null; // { from, to }
 
 const calOpen = () => !document.getElementById('calendar').hidden;
 
-function openCalendar() {
+function openCalendar(mode) {
+  state.pickerMode = mode ?? state.pickerMode;
   state.calMonth = (state.anchor || todayKey()).slice(0, 7);
-  pendingStart = null;
   hoverDate = null;
+  // The month picker is a list, so it opens straight into it.
+  state.calDrop = state.pickerMode === 'month';
+  pending = state.data
+    ? { from: state.data.period.from, to: state.data.period.to }
+    : { from: state.anchor, to: state.anchor };
   document.getElementById('calendar').hidden = false;
-  document.getElementById('datebtn').setAttribute('aria-expanded', 'true');
   renderCalendar();
 }
 
 function closeCalendar() {
   document.getElementById('calendar').hidden = true;
-  document.getElementById('datebtn').setAttribute('aria-expanded', 'false');
-  pendingStart = null;
   hoverDate = null;
+  pending = null;
+  state.calDrop = false;
 }
 
 // Which dates the current selection covers, so the grid can show the whole
 // resolved period — picking 8 Sep with Monthly should light up all September
 // before you commit to it.
 function selectedSpan() {
-  if (pendingStart) {
-    const end = hoverDate && hoverDate >= pendingStart ? hoverDate : pendingStart;
-    const start = hoverDate && hoverDate < pendingStart ? hoverDate : pendingStart;
-    return [start, end];
-  }
   const p = state.data?.period;
   if (!p) return [state.anchor, state.anchor];
   return [p.from, p.to];
+}
+
+// Months that actually hold data. Anything outside has no figures behind it, so
+// the dropdown must not offer it.
+function availableMonths() {
+  const a = state.data?.available;
+  if (!a) return [];
+  const out = [];
+  let [y, m] = a.from.split('-').map(Number);
+  const [ty, tm] = a.to.split('-').map(Number);
+  while (y < ty || (y === ty && m <= tm)) {
+    out.push(`${y}-${pad2(m)}`);
+    if (++m > 12) { m = 1; y += 1; }
+  }
+  return out;
+}
+
+// What the header band announces: the provisional pick if there is one, the
+// applied period otherwise.
+function pendingLabel() {
+  const sel = pending ?? (state.data ? { from: state.data.period.from, to: state.data.period.to } : null);
+  if (!sel) return '—';
+  if (sel.from === sel.to) {
+    const [y, m, d] = sel.from.split('-').map(Number);
+    return `${DOW[dayOfWeek(y, m, d)]}, ${d} ${CAL_MONTHS[m - 1].slice(0, 3)}`;
+  }
+  return `${shortDate(sel.from)} – ${shortDate(sel.to)}`;
 }
 
 function renderCalendar() {
   const el = document.getElementById('calendar');
   const avail = state.data?.available;
   const [y, m] = state.calMonth.split('-').map(Number);
-  const [spanFrom, spanTo] = selectedSpan();
   const today = todayKey();
 
-  const lead = monIndex(y, m, 1);
+  // Shading comes from the real selection, never from the row it lands in.
+  const sel = pending ?? (state.data ? { from: state.data.period.from, to: state.data.period.to } : null);
+  const spanFrom = sel?.from ?? '';
+  const spanTo = sel?.to ?? '';
+
   const cells = [];
-  for (let i = 0; i < lead; i += 1) cells.push('<span class="cday blank"></span>');
+  for (let i = 0; i < sunIndex(y, m, 1); i += 1) cells.push('<span class="cday blank"></span>');
 
   for (let d = 1; d <= daysInMonth(y, m); d += 1) {
     const key = dkey(y, m, d);
     const usable = key <= today && (!avail || (key >= avail.from && key <= avail.to));
-    const inSpan = key >= spanFrom && key <= spanTo;
-    const cls = [
-      'cday',
-      usable ? 'usable' : 'off',
-      inSpan ? 'in' : '',
-      key === spanFrom ? 'start' : '',
-      key === spanTo ? 'end' : '',
-      key === today ? 'today' : '',
-    ].filter(Boolean).join(' ');
-    cells.push(
-      `<button class="${cls}" data-date="${key}" ${usable ? '' : 'disabled'}
-               aria-pressed="${inSpan}">${d}</button>`,
-    );
+    const inSpan = spanFrom && key >= spanFrom && key <= spanTo;
+    const cls = ['cday', usable ? 'usable' : 'off', inSpan ? 'in' : '',
+      key === spanFrom ? 'start' : '', key === spanTo ? 'end' : '',
+      key === today ? 'today' : ''].filter(Boolean).join(' ');
+    cells.push(`<button class="${cls}" data-date="${key}" ${usable ? '' : 'disabled'}
+                        aria-pressed="${Boolean(inSpan)}">${d}</button>`);
   }
 
-  // Only a month with usable days is worth stepping to.
-  const prevMonth = dkey(y, m, 1) > (avail?.from ?? '0000-01-01');
-  const nextMonth = dkey(y, m, daysInMonth(y, m)) < today;
-
-  const foot =
-    state.granularity === 'custom'
-      ? pendingStart
-        ? `Start ${shortDate(pendingStart)} — now pick the end`
-        : 'Pick a start date, then an end'
-      : `${state.data?.period.label ?? ''}`;
+  const months = availableMonths();
+  const idx = months.indexOf(state.calMonth);
+  const hint = { day: 'Pick a day', week: 'Pick any day in the week', month: 'Pick a month' }[state.pickerMode] ?? '';
 
   el.innerHTML = `
-    <div class="calhead">
-      <button class="calnav" data-mstep="-1" ${prevMonth ? '' : 'disabled'} aria-label="Previous month">‹</button>
-      <strong>${CAL_MONTHS[m - 1]} ${y}</strong>
-      <button class="calnav" data-mstep="1" ${nextMonth ? '' : 'disabled'} aria-label="Next month">›</button>
+    <div class="calband">
+      <div class="calyear">${y}</div>
+      <div class="calsel">${esc(pendingLabel())}</div>
     </div>
-    <div class="caldow">${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((x) => `<span>${x}</span>`).join('')}</div>
-    <div class="calgrid">${cells.join('')}</div>
-    <div class="calfoot">${esc(foot)}</div>`;
+    <div class="calbody">
+      <div class="calhead">
+        ${state.pickerMode === 'month'
+          ? `<strong class="calmonth-static">Choose a month</strong>`
+          : `<button class="calmonth" data-drop="1" aria-expanded="${state.calDrop ? 'true' : 'false'}">
+               ${CAL_MONTHS[m - 1]} ${y} <span class="caret">▾</span>
+             </button>`}
+        <div class="calsteps" ${state.pickerMode === 'month' ? 'hidden' : ''}>
+          <button class="calnav" data-mstep="-1" ${idx > 0 ? '' : 'disabled'} aria-label="Previous month">‹</button>
+          <button class="calnav" data-mstep="1" ${idx >= 0 && idx < months.length - 1 ? '' : 'disabled'} aria-label="Next month">›</button>
+        </div>
+      </div>
+      ${state.calDrop
+        ? `<div class="calmonths">${months.map((k) => {
+            const [my, mm] = k.split('-').map(Number);
+            return `<button data-month="${k}" aria-pressed="${k === state.calMonth}">${CAL_MONTHS[mm - 1]} ${my}</button>`;
+          }).join('')}</div>`
+        : `<div class="caldow">${['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((x) => `<span>${x}</span>`).join('')}</div>
+           <div class="calgrid">${cells.join('')}</div>`}
+    </div>
+    <div class="calfoot">
+      <span class="calhint">${esc(hint)}</span>
+      <div class="calactions">
+        <button data-act="cancel">CANCEL</button>
+        <button data-act="ok" class="ok">OK</button>
+      </div>
+    </div>`;
 }
 
-const shortDate = (key) => {
-  const [, m, d] = key.split('-').map(Number);
-  // Abbreviated from the full names already declared above, rather than a
-  // second month table that could drift out of step with the first.
-  return `${d} ${CAL_MONTHS[m - 1].slice(0, 3)}`;
-};
-
 function pickDate(key) {
-  if (state.granularity !== 'custom') {
-    state.anchor = key;
-    closeCalendar();
-    reload();
-    return;
+  if (state.pickerMode === 'week') {
+    // Show the whole week the day belongs to, so what is highlighted is what
+    // will be fetched. Mon-Sun, matching the data layer — in a Sunday-first
+    // grid that span wraps two rows, which is the honest rendering.
+    const [y, m, d] = key.split('-').map(Number);
+    const back = (dayOfWeek(y, m, d) + 6) % 7;
+    const from = addDaysKey(key, -back);
+    pending = { from, to: addDaysKey(from, 6) };
+  } else {
+    pending = { from: key, to: key };
   }
-  if (!pendingStart) {
-    // First click. Nothing is applied yet — a range needs both ends.
-    pendingStart = key;
-    hoverDate = null;
-    renderCalendar();
-    return;
-  }
-  // Second click. Clicking earlier than the start means the user is choosing
-  // the other end, not making a mistake, so swap rather than refuse.
-  const [from, to] = key < pendingStart ? [key, pendingStart] : [pendingStart, key];
-  state.anchor = from;
-  state.to = to;
+  renderCalendar();
+}
+
+// Nothing reaches `state` — and nothing is fetched — until here.
+function commitCalendar() {
+  if (!pending) return closeCalendar();
+  // The granularity comes from the button that opened the picker, so choosing
+  // in it is the whole interaction — there is nothing else to set afterwards.
+  state.granularity = state.pickerMode;
+  state.anchor = pending.from;
+  state.to = null;
   closeCalendar();
   reload();
 }
@@ -608,12 +632,14 @@ function pickDate(key) {
 // ---- data ----------------------------------------------------------
 
 const query = () => {
+  // Re-snapping the anchor here, rather than when the tab was clicked, is what
+  // carries a page left open overnight onto the new day instead of freezing it
+  // on yesterday while still calling itself live.
+  if (isLive()) state.anchor = todayKey();
   const q = new URLSearchParams({
-    granularity: state.granularity,
+    granularity: isLive() ? 'day' : state.granularity,
     anchor: state.anchor,
-    rolling: String(state.rolling),
   });
-  if (state.granularity === 'custom') q.set('to', state.to ?? state.anchor);
   return q;
 };
 
@@ -704,8 +730,21 @@ function renderPageHead(d) {
   // Reporting means it has actually answered, not merely that it has not
   // errored yet — before the first poll those are not the same claim.
   const reporting = d.health.filter((h) => h.lastSuccessAt && !h.lastError).length;
+  // The comparison range used to sit under the date in the header. The header
+  // no longer carries a date, but this sentence still has to appear somewhere:
+  // it is what stops a part-traded period, measured against an equally
+  // part-traded one, from reading as a collapse.
+  const p = d.period;
+  const trimmed =
+    p.comparedToHour != null
+      ? ` to ${String(p.comparedToHour).padStart(2, '0')}:00`
+      : p.open
+        ? ` (${p.days} day${p.days === 1 ? '' : 's'} so far)`
+        : '';
+
   const bits = [
-    d.period.label,
+    isLive() ? `Live · ${p.label}` : p.label,
+    `vs ${p.prevLabel}${trimmed}`,
     `${reporting} of ${d.health.length} outlets reporting`,
     `${d.notReporting.length} without Orders API`,
   ];
@@ -764,30 +803,14 @@ function reload() {
 }
 
 function step(direction) {
+  // Live is pinned to now. Stepping off it would leave the tab asserting
+  // something the figures underneath no longer say.
+  if (isLive()) return;
   const [y, m, day] = state.anchor.split('-').map(Number);
   const at = new Date(Date.UTC(y, m - 1, day, 12));
 
-  // A custom range has no calendar unit to step by, so it moves by its own
-  // span and carries its end along with it.
-  if (state.granularity === 'custom') {
-    const span = state.data?.period ? state.data.period.days : 1;
-    const p = (n) => String(n).padStart(2, '0');
-    const shift = (key, n) => {
-      const [yy, mm, dd] = key.split('-').map(Number);
-      const s2 = new Date(Date.UTC(yy, mm - 1, dd + n, 12));
-      return `${s2.getUTCFullYear()}-${p(s2.getUTCMonth() + 1)}-${p(s2.getUTCDate())}`;
-    };
-    const nextFrom = shift(state.anchor, direction * span);
-    const nextTo = shift(state.to ?? state.anchor, direction * span);
-    if (nextTo > todayKey()) return;
-    state.anchor = nextFrom;
-    state.to = nextTo;
-    reload();
-    return;
-  }
-
-  if (state.granularity === 'day' || state.rolling) {
-    at.setUTCDate(at.getUTCDate() + direction * (state.granularity === 'day' ? 1 : state.granularity === 'week' ? 7 : 30));
+  if (state.granularity === 'day') {
+    at.setUTCDate(at.getUTCDate() + direction);
   } else if (state.granularity === 'week') {
     at.setUTCDate(at.getUTCDate() - ((at.getUTCDay() + 6) % 7) + 7 * direction);
   } else {
@@ -802,36 +825,21 @@ function step(direction) {
 
 document.getElementById('granularity').addEventListener('click', (e) => {
   const g = e.target.closest('button')?.dataset.g;
-  if (!g || g === state.granularity) return;
-  state.granularity = g;
+  if (!g) return;
 
-  if (g === 'custom') {
-    // Seed from whatever was on screen, so switching to Custom shows the same
-    // figures rather than resetting the page to a single day.
-    const p = state.data?.period;
-    state.anchor = p?.from ?? state.anchor;
-    state.to = p?.to ?? state.anchor;
-    openCalendar();
-    return; // the calendar applies the range; nothing to fetch yet
+  // Live has nothing to ask: it means now. Everything else opens the picker for
+  // its own granularity — including when it is already the active one, which is
+  // exactly when you want to change the date.
+  if (g === 'live') {
+    state.granularity = 'live';
+    state.to = null;
+    closeCalendar();
+    reload();
+    return;
   }
+
   state.to = null;
-  reload();
-});
-
-document.getElementById('prev').addEventListener('click', () => step(-1));
-document.getElementById('next').addEventListener('click', () => step(1));
-
-document.getElementById('today').addEventListener('click', () => {
-  state.anchor = todayKey();
-  // In Custom mode "Today" means today, a single day — keeping the old end
-  // would silently produce a range nobody asked for.
-  if (state.granularity === 'custom') state.to = todayKey();
-  reload();
-});
-
-document.getElementById('rolling').addEventListener('click', () => {
-  state.rolling = !state.rolling;
-  reload();
+  openCalendar(g);
 });
 
 document.querySelector('thead').addEventListener('click', (e) => {
@@ -859,33 +867,46 @@ if (sentinel && 'IntersectionObserver' in window) {
   ).observe(sentinel);
 }
 
-document.getElementById('datebtn').addEventListener('click', () => {
-  if (calOpen()) closeCalendar();
-  else openCalendar();
-});
-
 document.getElementById('calendar').addEventListener('click', (e) => {
   const mstep = e.target.closest('[data-mstep]')?.dataset.mstep;
   if (mstep) {
-    const [y, m] = state.calMonth.split('-').map(Number);
-    const dt = new Date(Date.UTC(y, m - 1 + Number(mstep), 1, 12));
-    state.calMonth = `${dt.getUTCFullYear()}-${pad2(dt.getUTCMonth() + 1)}`;
+    const months = availableMonths();
+    const next = months[months.indexOf(state.calMonth) + Number(mstep)];
+    if (next) {
+      state.calMonth = next;
+      renderCalendar();
+    }
+    return;
+  }
+  const act = e.target.closest('[data-act]')?.dataset.act;
+  if (act) {
+    if (act === 'ok') commitCalendar();
+    else closeCalendar();
+    return;
+  }
+
+  if (e.target.closest('[data-drop]')) {
+    state.calDrop = !state.calDrop;
     renderCalendar();
     return;
   }
+
+  const month = e.target.closest('[data-month]')?.dataset.month;
+  if (month) {
+    state.calMonth = month;
+    if (state.pickerMode === 'month') {
+      // The list is the whole picker here, so choosing is deciding.
+      pending = { from: `${month}-01`, to: `${month}-01` };
+      commitCalendar();
+      return;
+    }
+    state.calDrop = false;
+    renderCalendar();
+    return;
+  }
+
   const date = e.target.closest('.cday.usable')?.dataset.date;
   if (date) pickDate(date);
-});
-
-// Previewing the span while choosing the second end is what makes a two-click
-// range legible; without it you are picking blind.
-document.getElementById('calendar').addEventListener('mouseover', (e) => {
-  if (!pendingStart) return;
-  const date = e.target.closest('.cday.usable')?.dataset.date;
-  if (date && date !== hoverDate) {
-    hoverDate = date;
-    renderCalendar();
-  }
 });
 
 // "Click outside closes it" has to actually mean outside. Previously this fired
@@ -895,11 +916,21 @@ document.getElementById('calendar').addEventListener('mouseover', (e) => {
 // that was wrong.
 document.addEventListener('click', (e) => {
   if (!calOpen()) return;
-  if (e.target.closest('#calendar, #datebtn, #granularity')) return;
+  // composedPath(), not closest(). Picking a date re-renders the popover
+  // synchronously, so by the time this fires e.target has been detached from
+  // the document and closest() returns null — the guard failed, the calendar
+  // closed itself, and the selection was discarded before OK could apply it.
+  // The path is captured when the event is dispatched and survives the
+  // re-render.
+  const inside = e.composedPath().some((n) => n.id === 'calendar' || n.id === 'granularity');
+  if (inside) return;
   closeCalendar();
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && calOpen()) closeCalendar();
+  if (!calOpen()) return;
+  // Escape discards the provisional pick; Enter is the same as OK.
+  if (e.key === 'Escape') closeCalendar();
+  if (e.key === 'Enter') commitCalendar();
 });
 
 document.getElementById('search').addEventListener('input', (e) => {
@@ -937,5 +968,5 @@ setInterval(() => {
   // `truncated` is the serverless deployment saying it ran out of time with
   // days still missing. It has cached whatever it did fetch, so asking again
   // is cheap and finishes the job.
-  if (d.period.live || d.backfilling || d.truncated || d.complete === false) reload();
+  if (isLive() || d.period.live || d.backfilling || d.truncated || d.complete === false) reload();
 }, 30_000);

@@ -27,51 +27,20 @@
         </div>
       </div>
 
-      <!-- One instrument, not four boxes near each other. Zones are separated
-           by a stronger rule than the cells inside them, which is what carries
-           the grouping now that each group has lost its own outline. -->
-      <div class="periodwrap">
-        <div class="periodctl">
-          <div class="zone" id="granularity" role="group" aria-label="Period length">
-          <button data-g="day" aria-pressed="true">Daily</button>
+      <!-- Each button opens the picker for its own granularity; Live applies
+           straight away. No container: the active state is an underline. -->
+      <div class="controls">
+        <div class="granularity" id="granularity" role="group" aria-label="Period length">
+          <button data-g="live" aria-pressed="true">Live</button>
+          <button data-g="day" aria-pressed="false">Daily</button>
           <button data-g="week" aria-pressed="false">Weekly</button>
           <button data-g="month" aria-pressed="false">Monthly</button>
-          <button data-g="custom" aria-pressed="false">Custom</button>
         </div>
 
-        <div class="zone datezone">
-          <button id="prev" class="step" title="Previous period" aria-label="Previous period">‹</button>
-          <!-- The date is now the way in to the calendar, not inert text. -->
-          <button id="datebtn" class="rangelabel" aria-haspopup="dialog" aria-expanded="false"
-                  title="Pick a date or range">
-            <svg class="cal" viewBox="0 0 16 16" aria-hidden="true">
-              <rect x="2" y="3.2" width="12" height="11" rx="2"/>
-              <path d="M2 6.6h12M5.4 1.8v2.6M10.6 1.8v2.6"/>
-            </svg>
-            <span class="rl-text">
-              <strong id="range-label">—</strong>
-              <span id="prev-label"></span>
-            </span>
-            <span class="caret" aria-hidden="true">▾</span>
-          </button>
-          <button id="next" class="step" title="Next period" aria-label="Next period">›</button>
-        </div>
-
-        <div class="zone">
-          <button id="today">Today</button>
-          <!-- The word is gone, so the accessible name carries the whole
-               meaning. The mode itself shows in the segment labels above. -->
-          <button id="rolling" class="icon" aria-pressed="false"
-                  aria-label="Rolling periods"
-                  title="Rolling: use the last 7 / 30 days instead of calendar weeks and months">⟲</button>
-        </div>
+        <!-- Sibling of the buttons so it is not clipped by anything. -->
+        <div class="calendar" id="calendar" role="dialog" aria-modal="false"
+             aria-label="Choose a period" hidden></div>
       </div>
-
-      <!-- Sibling of .periodctl, not a child: that element clips to its own
-           radius with overflow:hidden, which would swallow the popover. -->
-      <div class="calendar" id="calendar" role="dialog" aria-modal="false"
-           aria-label="Choose a date or range" hidden></div>
-    </div>
 
       <div class="status">
         <span class="dot idle" id="dot"></span>
