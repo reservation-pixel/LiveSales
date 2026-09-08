@@ -57,6 +57,22 @@ export class Store {
     return ACTIVE.every((o) => dates.every((d) => this.days.has(key(o.id, d))));
   }
 
+  /**
+   * The span of dates that have been fetched, so the calendar can dim what
+   * cannot be picked. An undimmed date with nothing behind it renders an empty
+   * dashboard, which reads as a collapse in trade rather than a gap in loading.
+   * `to` is always today: it has data by definition, even before the first
+   * order of the day lands.
+   */
+  span() {
+    let from = today();
+    for (const k of this.days.keys()) {
+      const date = k.slice(k.indexOf(':') + 1);
+      if (date < from) from = date;
+    }
+    return { from, to: today() };
+  }
+
   // ---- persistence ---------------------------------------------------
   // Only closed days are written. Today is still moving, so caching it would
   // serve a stale figure to the next process to start.

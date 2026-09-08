@@ -133,3 +133,69 @@ test('buckets are hourly for a day and daily otherwise', () => {
   assert.equal(bucketsFor(m).kind, 'day');
   assert.equal(bucketsFor(m).keys.length, 31);
 });
+
+// ---- custom ranges --------------------------------------------------
+// Arbitrary spans, stated outright rather than snapped to a calendar boundary.
+// This is the third time date arithmetic has been added here; the first two
+// attempts shipped bugs (July compared against a 31-day slice of June, and
+// part-traded periods measured against whole ones), hence the coverage.
+
+test('a custom range is exactly the days asked for', () => {
+  const r = resolve('custom', '2026-09-08', { to: '2026-09-11', now: NOW });
+  assert.equal(r.from, '2026-09-08');
+  assert.equal(r.to, '2026-09-11');
+  assert.equal(r.dates.length, 4);
+  assert.deepEqual(r.dates, ['2026-09-08', '2026-09-09', '2026-09-10', '2026-09-11']);
+  assert.equal(r.label, '8–11 Sep 2026');
+});
+
+test('a custom range compares against the same length immediately before it', () => {
+  const r = resolve('custom', '2026-09-08', { to: '2026-09-11', now: NOW });
+  assert.equal(r.prev.from, '2026-09-04');
+  assert.equal(r.prev.to, '2026-09-07');
+  assert.equal(r.prev.dates.length, r.dates.length, 'like for like');
+  // The comparison must not reach into the range it is comparing.
+  assert.ok(r.prev.to < r.from, 'no overlap with the current range');
+});
+
+test('a one-day custom range behaves as a day', () => {
+  const c = resolve('custom', '2026-09-05', { to: '2026-09-05', now: NOW });
+  const d = resolve('day', '2026-09-05', { now: NOW });
+  assert.deepEqual(c.dates, d.dates);
+  assert.deepEqual(c.prev.dates, d.prev.dates);
+});
+
+test('a custom range survives month and year boundaries', () => {
+  const acrossMonth = resolve('custom', '2026-08-28', { to: '2026-09-03', now: NOW });
+  assert.equal(acrossMonth.dates.length, 7);
+  assert.equal(acrossMonth.prev.from, '2026-08-21');
+  assert.equal(acrossMonth.prev.to, '2026-08-27');
+
+  const acrossYear = resolve('custom', '2025-12-30', { to: '2026-01-02', now: NOW });
+  assert.equal(acrossYear.dates.length, 4);
+  assert.equal(acrossYear.label, '30 Dec 2025 – 2 Jan 2026');
+});
+
+test('a custom range ending today is still truncated like for like', () => {
+  // Asked for 1–10 Sep on the 7th: only 7 days have traded, so only 7 may be
+  // compared — the same rule that stops a part-month reading as a collapse.
+  const r = resolve('custom', '2026-09-01', { to: '2026-09-10', now: NOW });
+  assert.equal(r.open, true);
+  assert.equal(r.to, NOW, 'cut at today, not at the requested end');
+  assert.equal(r.dates.length, 7);
+  assert.equal(r.prev.dates.length, 7);
+  assert.equal(r.includesToday, true);
+});
+
+test('custom steps by its own span, not by a calendar unit', () => {
+  assert.equal(step('custom', '2026-09-08', -1, 4), '2026-09-04');
+  assert.equal(step('custom', '2026-09-08', 1, 4), '2026-09-12');
+  // Crossing a month boundary backwards.
+  assert.equal(step('custom', '2026-09-02', -1, 7), '2026-08-26');
+});
+
+test('a reversed or malformed custom range is refused, not silently fixed', () => {
+  assert.throws(() => resolve('custom', '2026-09-11', { to: '2026-09-08', now: NOW }), /ends before it starts/);
+  assert.throws(() => resolve('custom', '2026-09-08', { now: NOW }), /custom range end/);
+  assert.throws(() => resolve('custom', '2026-09-08', { to: 'not-a-date', now: NOW }), /custom range end/);
+});

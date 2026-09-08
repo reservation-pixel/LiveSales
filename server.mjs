@@ -15,7 +15,7 @@ import { ACTIVE, BRANDS, INACTIVE, INACTIVE_REASON, BY_ID, outletsOfBrand } from
 import { credentialsFromEnv } from './petpooja.mjs';
 import { combine, sumDays, truncateToHour, delta, pointDelta } from './aggregate.mjs';
 import { mappingTable, groupOf, GROUP_LABELS } from './categories.mjs';
-import { GRANULARITIES, bucketsFor, isDateKey, resolve, today } from './periods.mjs';
+import { GRANULARITIES, bucketsFor, daysBetween, isDateKey, resolve, today } from './periods.mjs';
 import { Store } from './store.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -38,6 +38,11 @@ const send = (res, status, body, type = 'application/json') => {
 
 // Reject anything not on the allowlist rather than clamping silently — a typo
 // in a bookmarked URL should say so, not quietly show a different month.
+// A custom range is user-invented, so every bound is checked rather than
+// clamped. Silently shrinking a request the caller can see in the URL is worse
+// than refusing it.
+const MAX_CUSTOM_DAYS = 366;
+
 const readPeriod = (params) => {
   const granularity = params.get('granularity') || 'day';
   if (!GRANULARITIES.includes(granularity)) {
@@ -47,7 +52,22 @@ const readPeriod = (params) => {
   if (!isDateKey(anchor)) throw new Error('anchor must be YYYY-MM-DD');
   // A future anchor would trigger a backfill over days that cannot exist.
   if (anchor > today()) throw new Error('anchor cannot be in the future');
-  return { granularity, anchor, rolling: params.get('rolling') === 'true' };
+
+  let to;
+  if (granularity === 'custom') {
+    to = params.get('to');
+    if (!isDateKey(to)) throw new Error('custom needs a `to` date as YYYY-MM-DD');
+    if (to < anchor) throw new Error('`to` cannot be before `anchor`');
+    if (to > today()) throw new Error('`to` cannot be in the future');
+    // The ceiling that matters: without it a multi-year range turns one click
+    // into thousands of upstream calls.
+    const days = daysBetween(anchor, to) + 1;
+    if (days > MAX_CUSTOM_DAYS) {
+      throw new Error(`custom range is ${days} days; the maximum is ${MAX_CUSTOM_DAYS}`);
+    }
+  }
+
+  return { granularity, anchor, to, rolling: params.get('rolling') === 'true' };
 };
 
 const summarise = (store, range) => {
@@ -142,6 +162,8 @@ const summarise = (store, range) => {
     notReportingReason: INACTIVE_REASON,
     health: store.healthReport(),
     backfilling: store.backfill.running ? store.backfill : null,
+    // What the calendar may offer. Anything outside this has no data behind it.
+    available: store.span(),
     complete: store.covers(range.dates),
     // A delta against a period that is not fully loaded is not a small error,
     // it is a wrong number: an uncached June makes July look like +2203%.
@@ -168,7 +190,7 @@ const main = async () => {
       let range;
       try {
         const p = readPeriod(url.searchParams);
-        range = resolve(p.granularity, p.anchor, { rolling: p.rolling });
+        range = resolve(p.granularity, p.anchor, { rolling: p.rolling, to: p.to });
       } catch (err) {
         return send(res, 400, { error: err.message });
       }
@@ -191,7 +213,7 @@ const main = async () => {
       let range;
       try {
         const p = readPeriod(url.searchParams);
-        range = resolve(p.granularity, p.anchor, { rolling: p.rolling });
+        range = resolve(p.granularity, p.anchor, { rolling: p.rolling, to: p.to });
       } catch (err) {
         return send(res, 400, { error: err.message });
       }

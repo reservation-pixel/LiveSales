@@ -1,15 +1,15 @@
 // Day / week / month range maths.
 //
 // Every figure on the dashboard is driven by one {granularity, anchor, rolling}
-// triple, resolved here into a plain list of YYYY-MM-DD strings. Keeping it in
-// one module is what stops "this month" meaning one thing in the header and
-// another in the table.
+// triple — plus a range end for 'custom' — resolved here into a plain list of
+// YYYY-MM-DD strings. Keeping it in one module is what stops "this month"
+// meaning one thing in the header and another in the table.
 //
 // All dates are handled as YYYY-MM-DD strings and only ever converted to Date
 // at UTC noon. Petpooja reports a business date, not an instant; parsing
 // '2026-09-07' as UTC midnight and formatting it in IST gives back the 6th.
 
-export const GRANULARITIES = ['day', 'week', 'month'];
+export const GRANULARITIES = ['day', 'week', 'month', 'custom'];
 
 const DAY_MS = 86_400_000;
 const pad = (n) => String(n).padStart(2, '0');
@@ -61,9 +61,10 @@ const monthEnd = (key) => {
  * happened. So the previous month contributes the 1st-7th only, and `prev.label`
  * says so out loud rather than leaving the reader to assume.
  *
- * @param {'day'|'week'|'month'} granularity
- * @param {string} anchor  YYYY-MM-DD, any date inside the wanted period
- * @param {{rolling?: boolean, now?: string}} opts
+ * @param {'day'|'week'|'month'|'custom'} granularity
+ * @param {string} anchor  YYYY-MM-DD, any date inside the wanted period. For
+ *   'custom' it is the start of the range and `opts.to` is the end.
+ * @param {{rolling?: boolean, now?: string, to?: string}} opts
  */
 export const resolve = (granularity, anchor, opts = {}) => {
   const { rolling = false, now = today() } = opts;
@@ -72,7 +73,14 @@ export const resolve = (granularity, anchor, opts = {}) => {
 
   let from;
   let to;
-  if (granularity === 'day') {
+  if (granularity === 'custom') {
+    // The range is stated outright rather than derived from an anchor, so there
+    // is nothing to snap to a week or month boundary.
+    if (!isDateKey(opts.to)) throw new Error(`Bad custom range end: ${opts.to}`);
+    if (opts.to < anchor) throw new Error(`Custom range ends before it starts: ${anchor}…${opts.to}`);
+    from = anchor;
+    to = opts.to;
+  } else if (granularity === 'day') {
     from = anchor;
     to = anchor;
   } else if (rolling) {
@@ -98,7 +106,12 @@ export const resolve = (granularity, anchor, opts = {}) => {
   // 1 July — a day of the current month, counted twice.
   let prevFrom;
   let prevTo;
-  if (granularity === 'day') {
+  if (granularity === 'custom') {
+    // Same length, immediately before, no overlap — the only defensible
+    // comparison for a range the user invented.
+    prevTo = addDays(from, -1);
+    prevFrom = addDays(prevTo, -daysBetween(from, to));
+  } else if (granularity === 'day') {
     prevFrom = addDays(from, -1);
     prevTo = prevFrom;
   } else if (rolling) {
@@ -136,7 +149,14 @@ export const resolve = (granularity, anchor, opts = {}) => {
   };
 };
 
-export const step = (granularity, anchor, direction) => {
+/**
+ * Move the anchor by one whole period.
+ *
+ * A custom range has no calendar length to snap to, so it steps by its own
+ * span — `‹` on 8–11 Sep lands on 4–7 Sep. Callers pass `span` for that case.
+ */
+export const step = (granularity, anchor, direction, span = 1) => {
+  if (granularity === 'custom') return addDays(anchor, direction * Math.max(1, span));
   if (granularity === 'day') return addDays(anchor, direction);
   if (granularity === 'week') return addDays(weekStart(anchor), 7 * direction);
   const [y, m] = anchor.split('-').map(Number);

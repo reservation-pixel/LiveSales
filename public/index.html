@@ -3,32 +3,75 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Live Sales — Bookends</title>
+  <title>Live Sales — Bookends Hospitality</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Outside .wrap so the sticky band spans the viewport. Inside it, the bar
-       could never be wider than the 1420px column and read as a floating box. -->
-  <div class="periodbar">
-    <div class="periodbar-inner">
-      <div class="seg" id="granularity" role="group" aria-label="Period length">
-        <button data-g="day" aria-pressed="true">Day</button>
-        <button data-g="week" aria-pressed="false">Week</button>
-        <button data-g="month" aria-pressed="false">Month</button>
-      </div>
-
-      <div class="nav">
-        <button id="prev" title="Previous period" aria-label="Previous period">‹</button>
-        <div class="rangelabel">
-          <strong id="range-label">—</strong>
-          <span id="prev-label"></span>
+  <!-- One bar: identity, controls, slot, status. Outside .wrap so it spans the
+       viewport; the inner element holds its contents to the same column as the
+       page below. -->
+  <div class="appbar" id="appbar">
+    <div class="appbar-inner">
+      <!-- Identity, then the slot. The tagline lives here at rest, per the
+           reference; once the stat cards scroll away the same space carries the
+           running totals instead, so it is never empty. -->
+      <div class="brandzone">
+        <div class="wordmark">
+          <strong>BOOKENDS</strong>
+          <span>HOSPITALITY</span>
         </div>
-        <button id="next" title="Next period" aria-label="Next period">›</button>
+        <span class="vrule" aria-hidden="true"></span>
+        <div class="headerslot" aria-live="polite">
+          <div class="slot-tagline">Great&nbsp;Food<br>Brighter&nbsp;Days</div>
+          <div class="slot-totals" id="header-totals"></div>
+        </div>
       </div>
 
-      <button class="ghost" id="today">Today</button>
-      <button class="ghost" id="rolling" aria-pressed="false"
-              title="Use last 7 / last 30 days instead of calendar weeks and months">Rolling</button>
+      <!-- One instrument, not four boxes near each other. Zones are separated
+           by a stronger rule than the cells inside them, which is what carries
+           the grouping now that each group has lost its own outline. -->
+      <div class="periodwrap">
+        <div class="periodctl">
+          <div class="zone" id="granularity" role="group" aria-label="Period length">
+          <button data-g="day" aria-pressed="true">Daily</button>
+          <button data-g="week" aria-pressed="false">Weekly</button>
+          <button data-g="month" aria-pressed="false">Monthly</button>
+          <button data-g="custom" aria-pressed="false">Custom</button>
+        </div>
+
+        <div class="zone datezone">
+          <button id="prev" class="step" title="Previous period" aria-label="Previous period">‹</button>
+          <!-- The date is now the way in to the calendar, not inert text. -->
+          <button id="datebtn" class="rangelabel" aria-haspopup="dialog" aria-expanded="false"
+                  title="Pick a date or range">
+            <svg class="cal" viewBox="0 0 16 16" aria-hidden="true">
+              <rect x="2" y="3.2" width="12" height="11" rx="2"/>
+              <path d="M2 6.6h12M5.4 1.8v2.6M10.6 1.8v2.6"/>
+            </svg>
+            <span class="rl-text">
+              <strong id="range-label">—</strong>
+              <span id="prev-label"></span>
+            </span>
+            <span class="caret" aria-hidden="true">▾</span>
+          </button>
+          <button id="next" class="step" title="Next period" aria-label="Next period">›</button>
+        </div>
+
+        <div class="zone">
+          <button id="today">Today</button>
+          <!-- The word is gone, so the accessible name carries the whole
+               meaning. The mode itself shows in the segment labels above. -->
+          <button id="rolling" class="icon" aria-pressed="false"
+                  aria-label="Rolling periods"
+                  title="Rolling: use the last 7 / 30 days instead of calendar weeks and months">⟲</button>
+        </div>
+      </div>
+
+      <!-- Sibling of .periodctl, not a child: that element clips to its own
+           radius with overflow:hidden, which would swallow the popover. -->
+      <div class="calendar" id="calendar" role="dialog" aria-modal="false"
+           aria-label="Choose a date or range" hidden></div>
+    </div>
 
       <div class="status">
         <span class="dot idle" id="dot"></span>
@@ -38,23 +81,46 @@
   </div>
 
   <div class="wrap">
+    <header class="pagehead">
+      <h1>Business overview</h1>
+      <p class="sub" id="pagesub">Loading…</p>
+    </header>
+
     <div class="headline" id="headline"></div>
+    <!-- Watched by an IntersectionObserver: once this leaves the viewport the
+         stat cards are gone from view and the bar takes over showing them. -->
+    <div id="scroll-sentinel" aria-hidden="true"></div>
 
     <h2>Brands</h2>
     <div class="brands" id="brands"></div>
 
-    <h2>Outlets</h2>
+    <div class="sectionhead">
+      <h2>Outlets</h2>
+      <div class="tools">
+        <label class="search">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>
+          <input type="search" id="search" placeholder="Search outlets…" aria-label="Search outlets">
+        </label>
+        <button class="ghost" id="export" title="Download the outlet table as CSV">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8M4.5 6.5 8 10l3.5-3.5M2.5 13h11"/></svg>
+          Export
+        </button>
+      </div>
+    </div>
+
     <div class="tablewrap">
       <table>
         <thead>
           <tr>
             <th data-sort="name">Outlet</th>
+            <th data-sort="brand">Brand</th>
             <th data-sort="totalSales" class="num">Sales</th>
             <th data-sort="salesDelta" class="num">vs prev</th>
             <th data-sort="dessertPct" class="num">Desserts</th>
             <th data-sort="drinkPct" class="num">Drinks</th>
             <th data-sort="orders" class="num">Orders</th>
             <th data-sort="aov" class="num">AOV</th>
+            <th data-sort="status">Status</th>
           </tr>
         </thead>
         <tbody id="rows"></tbody>
