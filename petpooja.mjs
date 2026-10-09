@@ -1,9 +1,11 @@
 // Petpooja Orders API client.
 //
-// Deliberately node:https and not fetch. The endpoint is a GET that carries a
-// JSON body, and undici refuses that outright:
-//   TypeError: Request with GET/HEAD method cannot have body.
-// curl and node:https both send it fine, and Petpooja answers 200.
+// POST, although the vendor docs say GET. The docs describe a GET carrying a
+// JSON body, which worked until Petpooja put CloudFront in front of the API in
+// Oct 2026. CloudFront rejects any GET with a body as a 403 "Bad request" HTML
+// page before it reaches Petpooja, which took every outlet offline at once.
+// The same body sent as a POST is answered normally. Do not switch it back to
+// GET to match the docs.
 //
 // Two behaviours of this API that the rest of the codebase depends on:
 //   1. A call for date D returns orders for BOTH D and D-1. Callers must filter
@@ -71,7 +73,7 @@ const once = (creds, restID, date) =>
       {
         host: HOST,
         path: PATH,
-        method: 'GET',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(payload),

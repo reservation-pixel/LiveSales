@@ -130,7 +130,11 @@ export class KvStore {
         // invocation happened to fetch made all six outlets read "Waiting"
         // whenever the warm container served the request, which on the
         // deployment is the common case, not the exception.
-        if (hit.fetchedAt > (h.lastSuccessAt ?? 0)) h.lastSuccessAt = hit.fetchedAt;
+        // A seeded record may predate the fetchedAt stamp; holding the day at
+        // all is the evidence, so fall back rather than reporting "Waiting"
+        // while showing that outlet's figures.
+        const at = hit.fetchedAt ?? 1;
+        if (at > (h.lastSuccessAt ?? 0)) h.lastSuccessAt = at;
       }
     }
     this.ready = true;

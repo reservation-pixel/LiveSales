@@ -1,0 +1,472 @@
+Hi Team,
+
+Thank you for your patience.
+
+The payment has been confirmed, and we have successfully activated the Inventory API configuration for all the requested outlets.
+
+Please find the Menu Sharing Sync Codes below:
+
+Sr. No.	RID	Restaurant Name	Menu Sharing Sync Code
+1	410700	Ahmedabad Bakery	eh0x8kt3d2
+2	358609	Ahmedabad Store	4pwgfxrzs2
+3	394370	Family	x74bivacjk
+4	383611	KG Birthday Cake	9zrehnckm6
+5	423523	ODC	jprtvkud2b
+6	404029	ODC Store	8okipxz7r5
+7	343448	Surat Bakery	cjkf5gi2
+8	117185	Surat Store	d6pbazgs
+As mentioned earlier, you can use the Get Transfer API to fetch Inventory Transfer data, including:
+
+Transfer Header
+Transfer Item Details
+Source Outlet
+Destination Outlet
+Transfer Date
+Transfer Number
+You can refer to the Inventory API documentation using the link below:
+
+From: Shivam Tiwari <shivam.tiwari1@petpooja.com>
+Date: Mon, Jun 8, 2026 at 5:06 PM
+Subject: Re: [## 6610237 ##] Request for API Key Access for Sales Data Integration Dear Petpooja Support Team,
+To: bookends data analyst <bookendsdataanalyst@gmail.com>
+Cc: Malvi Vaghela <malvi.vaghela@petpooja.com>, Pinesh Thakor <pinesh.thakor@petpooja.com>
+
+
+Hi Team,
+
+The integration for the remaining outlets is complete. Please find the mapping codes (restID) below:
+
+73492 : 1ce6t782
+359628: yvop12cq3m
+353369 : qvy5ze7s0c
+21492 : ukrhzywj
+344447 : 4tmaivhj
+419174 : ihtnr4a7cy
+
+Regarding the remaining outlets, I am unable to locate the RIDs. Could you please verify if the IDs provided are correct?
+
++Pinesh Thakor FYI
+
+Regards 
+
+On Thu, Jun 4, 2026 at 4:18 PM Shivam Tiwari <shivam.tiwari1@petpooja.com> wrote:
+Hi Team,
+
+We have done the necessary configuration and our end for RID: 134691, Please check and we will do the remaining outlets once you confirm this.
+
+Please find the below API details from our end. Kindly review the same and let us know if you find any difficulty.
+
+curl --location --request GET 'https://api.petpooja.com/V1/thirdparty/generic_get_orders/'
+--header 'Cookie: PETPOOJA_API=mgnhpm6a8r5u11gatkpqhg7q00'\''' \
+--header 'Content-Type: application/json' \
+--data '{
+    "app_key": "uvw0th4nksi97o1bgqp35zjxr6e2may8",
+    "app_secret": "9450cbbbb22be056537e82138f1fa15220656e9b",
+    "access_token": "9949a4aea79acad2e22e501e89c5ff3146f15e48",
+    "restID": "z2ogsrb0", // Unique store ID/Mapping Code provided by Petpooja.
+    "order_date": "2026-06-04", // T-1 Date to fetch the data. Using this you will be receiving the 03th june data.
+    "refId": ""
+}'
+
+On Wed, Jun 3, 2026 at 7:01 PM Pinesh Thakor <pinesh.thakor@petpooja.com> wrote:
+Hello Team,
+
+
+Yes client bought GROWTH plan for the mentioned outlet and service has been changed as per the client request.
+
+Please help to get API as per client requirement.
+
+Regards,
+
+Logo
+		
+Pinesh Thakor
+City Head
+ +91 8155009567
+ +91 7969223344
+	A - Wing, 3rd Floor, Gopal Palace, Ahmedabad, GJ-380015
+
+On Tue, 2 Jun, 2026, 3:20 pm Shivam Tiwari, <shivam.tiwari1@petpooja.com> wrote:
+Hi +Pinesh Thakor  ,
+
+Please comment on this.
+
+Regards 
+
+On Tue, Jun 2, 2026 at 3:15 PM bookends data analyst <bookendsdataanalyst@gmail.com> wrote:
+Dear Team,
+
+We have already purchased the Growth Plan and have paid the applicable charges. Kindly confirm whether the API access mentioned in your email is included in our existing plan or if this is an additional charge.
+
+If it is an additional charge, please share the details of the services covered under the Growth Plan and the services covered under the API subscription.
+
+Regards,
+Meet patel.
+
+
+
+
+On Tue, Jun 2, 2026 at 2:56 PM Malvi Vaghela <support@petpooja1.zohodesk.com> wrote:
+Hi Team,
+
+Please find the attached API documentation for your review. Let us know if this meets your requirements.
+
+Additionally, please note that this service is available at a cost of 4,500/- (exclusive of GST) per outlet per year. Please confirm if you would like to proceed.
+
+---- on Tue, 02 Jun 2026 14:08:03 +0530 "Bookends data analyst"<bookendsdataanalyst@gmail.com> wrote ----
+Greetings.
+
+We would like to request API access for our organization so that we can fetch sales data directly from Petpooja and integrate it with our internal reporting and analytics systems.
+
+Kindly provide the API Key, API documentation, and any necessary credentials/permissions required for accessing sales-related data for the following restaurant/store IDs:
+
+Outlet Name	ID
+Aiko (Ahmedabad)	134691
+Aiko (Surat)	73492
+Bookends mobile	359628
+Capiche (Ahemdabad)	353369
+Capiche (Piplod)	21492
+Capiche (vesu)	344447
+Capiche Ahmedabad 2.0	419174
+Ahmedabad Bakery	410700
+Ahmedabad Store	358609
+Family	394370
+KG Birthday Cake	383611
+ODC	423523
+ODC Store	404029
+Surat Bakery	343448
+Surat Store	117185
+
+
+
+Our requirement is specifically to access sales-related information through the API for reporting and business analysis purposes.
+
+Please let us know if any additional documents, authorization, or account verification are required from our side.
+
+We look forward to your support.
+
+Thank you.
+
+Regards,
+Meet m patel.
+
+
+
+Skip to content
+Using Gmail with screen readers
+
+3 of 1,376
+Fwd: [## 6901477 ##] Request for API Access to Inventory Transfer Data
+Inbox
+
+Pankil Parikh <pankilp7kg@gmail.com>
+7:06 PM (1 hour ago)
+to me
+
+
+
+---------- Forwarded message ---------
+From: bookends data analyst <bookendsdataanalyst@gmail.com>
+Date: Thu, Aug 6, 2026 at 7:01 PM
+Subject: Fwd: [## 6901477 ##] Request for API Access to Inventory Transfer Data
+To: <pankilp7kg@gmail.com>
+
+
+
+
+---------- Forwarded message ---------
+From: Karp Patel <karp.patel@petpooja.com>
+Date: Tue, Aug 4, 2026 at 3:46 PM
+Subject: Re: [## 6901477 ##] Request for API Access to Inventory Transfer Data
+To: bookends data analyst <bookendsdataanalyst@gmail.com>
+Cc: <support@petpooja1.zohodesk.com>, petpooja support <support@petpooja.com>, yash ghodke <ghodkeyash@gmail.com>, Dipesh Panchal <dipesh.panchal@petpooja.com>, Pinesh Thakor <pinesh.thakor@petpooja.com>
+
+
+Hi Meet,
+
+Thank you for the request. We have completed the configuration for the additional outlets. Please find the details below:
+
+Newly Activated Outlets — Inventory Transfer API:
+
+RID	Outlet Name	Menu Sharing Code
+410150	       Ahmedabad Prep Kitchen	      opw2xhc6vg
+376017	       Surat Prep Kitchen	      kv4roawcjf
+Purchase API — All Locations:
+
+The Purchase API (Get Purchase) has been activated for all your outlets. Please use the respective Menu Sharing Code for each outlet when making API calls.
+
+API Credentials (same across all outlets):
+
+App Key: rpvg7joamn421d3u0x5qhk9ze8sibtcw
+App Secret: c7b1e4b80a2d1bfbf67da2bc81ca9dd9bf019b3e
+Access Token: 7334c01be3a9677868cbf1402880340e79e1ea84
+Regarding your Purchase API data requirements:
+All the fields you have listed are available in the Get Purchase API response, including Purchase Header, Item Details, Supplier/Vendor Details, Invoice Number, Purchase Number, Item Name, Quantity, Unit, Rate, Amount, and GST tax details (CGST, SGST, IGST, Cess).
+
+Get Purchase API Endpoint:
+POST https://inventory.petpooja.com/V1/thirdparty/get_purchase/
+
+Please note:
+
+Date format: DD-MM-YYYY
+Supports date range with pagination (max 50 records per call — use last purchase_id as refId for next page)
+API Documentation:
+https://inventory.petpooja.com/inventory_api#overview
+
+Please log in to https://billing.petpooja.com first to access the documentation.
+
+Please test on your end and let us know if you face any issues.
+
+
+On Tue, Aug 4, 2026 at 3:30 PM bookends data analyst <bookendsdataanalyst@gmail.com> wrote:
+Hi Team,
+
+Thank you for enabling the Inventory Transfer APIs.
+
+We would like to request API access for the following additional outlets as well:
+
+Inventory Transfer API:
+
+Ahmedabad Prep Kitchen (410150)
+
+Surat Prep Kitchen (376017)
+
+Additionally, we require Purchase API access for all our locations to support our reporting and automation requirements.
+
+We need the Purchase API to provide the following details:
+
+Purchase Header
+
+Purchase Item Details
+
+Supplier/Vendor Details
+
+Purchase Date
+
+Invoice Number
+
+Purchase Number
+
+Item Name
+
+Quantity
+
+Unit
+
+Rate
+
+Amount
+
+Tax Details (GST)
+
+Outlet Details
+
+Kindly enable the Purchase APIs for all our locations and share the API documentation or the required endpoint details along with the necessary credentials.
+
+Please let us know if any additional information is required from our end.
+
+Looking forward to your confirmation.
+
+Thanks & Regards,
+
+Meet Patel
+Data Analyst
+Bookends Hospitality Pvt. Ltd.
+
+
+On Mon, Aug 3, 2026 at 6:58 PM Karp Patel <karp.patel@petpooja.com> wrote:
+Hi Team,
+
+Thank you for your patience.
+
+The payment has been confirmed, and we have successfully activated the Inventory API configuration for all the requested outlets.
+
+Please find the Menu Sharing Sync Codes below:
+
+Sr. No.	RID	Restaurant Name	Menu Sharing Sync Code
+1	410700	Ahmedabad Bakery	eh0x8kt3d2
+2	358609	Ahmedabad Store	4pwgfxrzs2
+3	394370	Family	x74bivacjk
+4	383611	KG Birthday Cake	9zrehnckm6
+5	423523	ODC	jprtvkud2b
+6	404029	ODC Store	8okipxz7r5
+7	343448	Surat Bakery	cjkf5gi2
+8	117185	Surat Store	d6pbazgs
+As mentioned earlier, you can use the Get Transfer API to fetch Inventory Transfer data, including:
+
+Transfer Header
+Transfer Item Details
+Source Outlet
+Destination Outlet
+Transfer Date
+Transfer Number
+You can refer to the Inventory API documentation using the link below:
+
+https://inventory.petpooja.com/inventory_api#overview
+
+Note: Please log in to https://billing.petpooja.com before accessing the documentation.
+
+Kindly test the integration from your end and let us know if you face any issues or require any further assistance.
+
+
+On Mon, Aug 3, 2026 at 1:05 PM Pinesh Thakor <pinesh.thakor@petpooja.com> wrote:
+Hello Karp,
+
+Please ignore previous mail.
+
+Yes payment already done by the client.
+
+On Mon, Aug 3, 2026 at 1:04 PM Pinesh Thakor <pinesh.thakor@petpooja.com> wrote:
+Hello Kripal,
+
+Payment already done
+
+On Mon, Aug 3, 2026 at 1:00 PM Karp Patel <karp.patel@petpooja.com> wrote:
+@Pinesh Thakor  Bhai,
+
+could you please confirm the payment status for all the RIDs mentioned by the client? Once we receive your confirmation, we will activate the Inventory API configuration (where applicable) and share the respective Menu Sharing Sync Codes with the client.
+
+On Mon, Aug 3, 2026 at 12:58 PM Inventory Team <support@petpooja1.zohodesk.com> wrote:
+Hi Team,
+
+Thank you for reaching out.
+
+The required Inventory Transfer data can be fetched using our Get Transfer API, which provides details such as:
+
+Transfer Header
+
+Transfer Item Details
+
+Source Outlet
+
+Destination Outlet
+
+Transfer Date
+
+Transfer Number
+
+could you please confirm the payment status for all the RIDs mentioned by the client? Once we receive your confirmation, we will activate the Inventory API configuration (where applicable) and share the respective Menu Sharing Sync Codes with the client.
+You can refer to the Inventory API documentation using the link below:
+
+https://inventory.petpooja.com/inventory_api#overview
+
+Note: Please log in to https://billing.petpooja.com before accessing the documentation.
+
+Once the API configuration is completed and the Menu Sharing Sync Codes are shared, kindly test the integration from your end and let us know if you require any further assistance.
+
+
+Thanks & Regards,
+Karp Patel
+ 
+---- on Mon, 03 Aug 2026 11:46:05 +0530 "Pinesh Thakor"<pinesh.thakor@petpooja.com> wrote ----
+Hello Team,
+
+
+Any update on this?
+
+Regards,
+
+Logo
+		
+Pinesh Thakor
+City Head
+ +91 8155009567
+ +91 7969223344
+	A - Wing, 3rd Floor, Gopal Palace, Ahmedabad, GJ-380015
+
+On Mon, 3 Aug, 2026, 11:24 am bookends data analyst, <bookendsdataanalyst@gmail.com> wrote:
+Hi Team,
+
+I hope you are doing well.
+
+This is a follow-up regarding our request for Inventory Transfer API access, which was shared 5 days ago. We have not yet received any update on the request.
+
+This API is required for our reporting and automation process, and the delay is impacting our work. We would appreciate it if you could let us know:
+
+Whether the Inventory Transfer APIs are available.
+If yes, when we can expect the API documentation or access credentials.
+If not, whether there is any alternative method to retrieve the transfer data.
+Kindly provide an update on the status of this request at the earliest so that we can plan our implementation accordingly.
+
+Looking forward to your response.
+
+Thanks & Regards,
+Meet Patel
+Data Analyst
+Bookends Hospitality Pvt. Ltd.
+
+
+
+
+
+
+--
+Thanks & Regards,
+
+
+     
+Karp Patel
+Team Lead - Operations (Inventory) | Ahmedabad
+
+  +91 7486040776
+ +91 7969223344 
+  A - Wing, Gopal Palace
+      Ahmedabad, GJ-380015
+
+Please consider the environment and only print this email if necessary.
+
+
+--
+Regards,
+
+Logo
+		
+Pinesh Thakor
+City Head
+ +91 8155009567
+ +91 7969223344
+	A - Wing, 3rd Floor, Gopal Palace, Ahmedabad, GJ-380015
+
+
+--
+Regards,
+
+Logo
+		
+Pinesh Thakor
+City Head
+ +91 8155009567
+ +91 7969223344
+	A - Wing, 3rd Floor, Gopal Palace, Ahmedabad, GJ-380015
+
+
+--
+Thanks & Regards,
+
+
+     
+Karp Patel
+Team Lead - Operations (Inventory) | Ahmedabad
+
+  +91 7486040776
+ +91 7969223344 
+  A - Wing, Gopal Palace
+      Ahmedabad, GJ-380015
+
+Please consider the environment and only print this email if necessary.
+
+
+--
+Thanks & Regards,
+
+
+     
+Karp Patel
+Team Lead - Operations (Inventory) | Ahmedabad
+
+  +91 7486040776
+ +91 7969223344 
+  A - Wing, Gopal Palace
+      Ahmedabad, GJ-380015
+
+Please consider the environment and only print this email if necessary.
